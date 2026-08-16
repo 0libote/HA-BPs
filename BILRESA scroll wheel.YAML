@@ -479,10 +479,9 @@ action:
               for_each: "{{ on_lights }}"
               sequence:
                 - variables:
-                    current_brightness: >-
-                      {{ state_attr(repeat.item, 'brightness') | int(1) }}
                     new_brightness: >-
-                      {% set raw = (current_brightness | float) + (255 * (step_pct | float) / 100) %}
+                      {% set current = state_attr(repeat.item, 'brightness') | int(1) %}
+                      {% set raw = current + (255 * (step_pct | float) / 100) %}
                       {{ [255, [1, raw] | max] | min | round(0) | int }}
                 - action: light.turn_on
                   target:
@@ -509,10 +508,9 @@ action:
               for_each: "{{ on_lights }}"
               sequence:
                 - variables:
-                    current_brightness: >-
-                      {{ state_attr(repeat.item, 'brightness') | int(255) }}
                     new_brightness: >-
-                      {% set raw = (current_brightness | float) - (255 * (step_pct | float) / 100) %}
+                      {% set current = state_attr(repeat.item, 'brightness') | int(255) %}
+                      {% set raw = current - (255 * (step_pct | float) / 100) %}
                       {{ [255, [1, raw] | max] | min | round(0) | int }}
                 - action: light.turn_on
                   target:
