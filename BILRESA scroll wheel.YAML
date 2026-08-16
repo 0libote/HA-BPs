@@ -1,63 +1,40 @@
 blueprint:
-  name: IKEA BILRESA Scroll Wheel - One Light Set
+  name: IKEA BILRESA Scroll Wheel - 3 Light Presets
   description: |
-    Simple light control for the IKEA BILRESA scroll wheel remote via Matter.
+    Control three independent sets of lights with the IKEA BILRESA scroll wheel remote via Matter.
 
-    All 3 BILRESA presets/channels control the SAME set of lights.
+    Created by @0libote
+    GitHub: https://github.com/0libote/HA-BPs
 
     **Preset 1**
     - Button 1 / Right: brighter
     - Button 2 / Left: dimmer
-    - Button 3 / Push: next colour preset
-    - Button 3 / Hold: toggle lights on/off
+    - Button 3 / Push: next colour
+    - Button 3 / Hold: toggle Preset 1 lights on/off
 
     **Preset 2**
     - Button 4 / Right: brighter
     - Button 5 / Left: dimmer
-    - Button 6 / Push: next colour preset
-    - Button 6 / Hold: toggle lights on/off
+    - Button 6 / Push: next colour
+    - Button 6 / Hold: toggle Preset 2 lights on/off
 
     **Preset 3**
     - Button 7 / Right: brighter
     - Button 8 / Left: dimmer
-    - Button 9 / Push: next colour preset
-    - Button 9 / Hold: toggle lights on/off
+    - Button 9 / Push: next colour
+    - Button 9 / Hold: toggle Preset 3 lights on/off
 
-    IMPORTANT:
-    - Brightness changes NEVER send colour data.
-    - Power changes NEVER send colour data.
-    - Only a normal Push of Button 3, 6 or 9 changes colour.
-    - If the lights are OFF, scrolling or pressing for colour does nothing.
-    - Holding Button 3, 6 or 9 is the only action in this blueprint that changes power.
+    Brightness and power actions never send colour data.
+    Only a normal push of Button 3, 6 or 9 changes colour.
+    Brightness and colour actions only affect lights that are already on.
 
   domain: automation
+  source_url: https://github.com/0libote/HA-BPs/blob/main/BILRESA%20scroll%20wheel.YAML
 
   homeassistant:
     min_version: 2024.6.0
 
   input:
-
-    # ============================================================
-    # LIGHTS
-    # ============================================================
-    lights_section:
-      name: Lights
-      icon: mdi:lightbulb-group
-      description: |
-        Select the light or lights that should behave as one set.
-
-        All three BILRESA presets control these same lights.
-      input:
-
-        controlled_lights:
-          name: Controlled Lights
-          description: Select one or more light entities.
-          selector:
-            entity:
-              multiple: true
-              filter:
-                - domain: light
-
 
     # ============================================================
     # PRESET 1
@@ -66,36 +43,37 @@ blueprint:
       name: Preset 1 - Buttons 1, 2, 3
       icon: mdi:numeric-1-circle
       description: |
-        **Button 1 = Right / Brighter**
-
-        **Button 2 = Left / Dimmer**
-
-        **Button 3 = Push / Next Colour**
-
-        **Button 3 Hold = On / Off**
+        Button 1 = Right / Brighter
+        Button 2 = Left / Dimmer
+        Button 3 = Push / Next Colour
+        Button 3 Hold = On / Off
       input:
 
+        preset_1_lights:
+          name: Preset 1 Lights
+          description: Lights controlled by Buttons 1, 2 and 3.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: light
+
         button_1:
-          name: Button 1 - Right
-          description: Scroll wheel turned right.
+          name: Button 1 - Right / Brighter
           selector:
             entity:
               filter:
                 - domain: event
 
         button_2:
-          name: Button 2 - Left
-          description: Scroll wheel turned left.
+          name: Button 2 - Left / Dimmer
           selector:
             entity:
               filter:
                 - domain: event
 
         button_3:
-          name: Button 3 - Push
-          description: |
-            Normal press = next colour.
-            Hold = toggle lights on/off.
+          name: Button 3 - Push / Colour, Hold / Power
           selector:
             entity:
               filter:
@@ -109,36 +87,37 @@ blueprint:
       name: Preset 2 - Buttons 4, 5, 6
       icon: mdi:numeric-2-circle
       description: |
-        **Button 4 = Right / Brighter**
-
-        **Button 5 = Left / Dimmer**
-
-        **Button 6 = Push / Next Colour**
-
-        **Button 6 Hold = On / Off**
+        Button 4 = Right / Brighter
+        Button 5 = Left / Dimmer
+        Button 6 = Push / Next Colour
+        Button 6 Hold = On / Off
       input:
 
+        preset_2_lights:
+          name: Preset 2 Lights
+          description: Lights controlled by Buttons 4, 5 and 6.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: light
+
         button_4:
-          name: Button 4 - Right
-          description: Scroll wheel turned right.
+          name: Button 4 - Right / Brighter
           selector:
             entity:
               filter:
                 - domain: event
 
         button_5:
-          name: Button 5 - Left
-          description: Scroll wheel turned left.
+          name: Button 5 - Left / Dimmer
           selector:
             entity:
               filter:
                 - domain: event
 
         button_6:
-          name: Button 6 - Push
-          description: |
-            Normal press = next colour.
-            Hold = toggle lights on/off.
+          name: Button 6 - Push / Colour, Hold / Power
           selector:
             entity:
               filter:
@@ -152,36 +131,37 @@ blueprint:
       name: Preset 3 - Buttons 7, 8, 9
       icon: mdi:numeric-3-circle
       description: |
-        **Button 7 = Right / Brighter**
-
-        **Button 8 = Left / Dimmer**
-
-        **Button 9 = Push / Next Colour**
-
-        **Button 9 Hold = On / Off**
+        Button 7 = Right / Brighter
+        Button 8 = Left / Dimmer
+        Button 9 = Push / Next Colour
+        Button 9 Hold = On / Off
       input:
 
+        preset_3_lights:
+          name: Preset 3 Lights
+          description: Lights controlled by Buttons 7, 8 and 9.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: light
+
         button_7:
-          name: Button 7 - Right
-          description: Scroll wheel turned right.
+          name: Button 7 - Right / Brighter
           selector:
             entity:
               filter:
                 - domain: event
 
         button_8:
-          name: Button 8 - Left
-          description: Scroll wheel turned left.
+          name: Button 8 - Left / Dimmer
           selector:
             entity:
               filter:
                 - domain: event
 
         button_9:
-          name: Button 9 - Push
-          description: |
-            Normal press = next colour.
-            Hold = toggle lights on/off.
+          name: Button 9 - Push / Colour, Hold / Power
           selector:
             entity:
               filter:
@@ -189,25 +169,20 @@ blueprint:
 
 
     # ============================================================
-    # COLOUR SETTINGS
+    # COLOUR PRESETS
     # ============================================================
     colour_section:
       name: Colour Presets
       icon: mdi:palette
       description: |
-        Pick which colours you want the Push button to cycle through.
-
-        Button 3, Button 6 and Button 9 all use this same colour list.
-
-        The colours cycle in the order shown below.
+        These colours are shared by all three presets.
+        A normal push of Button 3, 6 or 9 cycles the selected preset's lights
+        through this list.
       input:
 
         colour_presets:
           name: Colours to Cycle
-          description: |
-            Select as many colours as you want.
-
-            I recommend selecting at least 2.
+          description: Select the colours you want available.
           default:
             - warm_white
             - red
@@ -221,31 +196,22 @@ blueprint:
               options:
                 - label: Warm White
                   value: warm_white
-
                 - label: Red
                   value: red
-
                 - label: Orange
                   value: orange
-
                 - label: Yellow
                   value: yellow
-
                 - label: Green
                   value: green
-
                 - label: Cyan
                   value: cyan
-
                 - label: Blue
                   value: blue
-
                 - label: Purple
                   value: purple
-
                 - label: Pink
                   value: pink
-
                 - label: Cool White
                   value: cool_white
 
@@ -263,22 +229,17 @@ blueprint:
 
 
     # ============================================================
-    # BRIGHTNESS SETTINGS
+    # BRIGHTNESS
     # ============================================================
     brightness_section:
       name: Brightness
       icon: mdi:brightness-6
-      description: |
-        These brightness settings apply to all three BILRESA presets.
+      description: These settings are shared by all three presets.
       input:
 
         brightness_step:
           name: Brightness Step
-          description: |
-            Percentage changed for each scroll-wheel click.
-
-            Fast scrolling may contain multiple clicks in one Matter event.
-            The blueprint accounts for this automatically.
+          description: Percentage changed for each scroll-wheel event.
           default: 10
           selector:
             number:
@@ -315,10 +276,7 @@ max_exceeded: silent
 
 trigger:
 
-  # ------------------------------------------------------------
-  # PRESET 1
-  # ------------------------------------------------------------
-
+  # Preset 1
   - platform: state
     entity_id: !input button_1
     not_from:
@@ -349,11 +307,7 @@ trigger:
       - unavailable
     id: preset1_push
 
-
-  # ------------------------------------------------------------
-  # PRESET 2
-  # ------------------------------------------------------------
-
+  # Preset 2
   - platform: state
     entity_id: !input button_4
     not_from:
@@ -384,11 +338,7 @@ trigger:
       - unavailable
     id: preset2_push
 
-
-  # ------------------------------------------------------------
-  # PRESET 3
-  # ------------------------------------------------------------
-
+  # Preset 3
   - platform: state
     entity_id: !input button_7
     not_from:
@@ -426,28 +376,49 @@ trigger:
 
 action:
 
-  # ------------------------------------------------------------
-  # MAIN VARIABLES
-  # ------------------------------------------------------------
-
   - variables:
 
-      lights: !input controlled_lights
+      # Each BILRESA preset has its own independent light set.
+      preset1_lights: !input preset_1_lights
+      preset2_lights: !input preset_2_lights
+      preset3_lights: !input preset_3_lights
 
       step_pct: !input brightness_step
       brightness_trans: !input brightness_transition
-
       colour_trans: !input colour_transition
       chosen_colours: !input colour_presets
 
+      # Work out which preset was used.
+      target_lights: >-
+        {% if trigger.id in ['preset1_right', 'preset1_left', 'preset1_push'] %}
+          {{ preset1_lights }}
+        {% elif trigger.id in ['preset2_right', 'preset2_left', 'preset2_push'] %}
+          {{ preset2_lights }}
+        {% else %}
+          {{ preset3_lights }}
+        {% endif %}
 
-      # --------------------------------------------------------
-      # COLOUR PRESET ORDER
-      #
-      # Even if the selections come back in a different order,
-      # this is the order the remote will cycle through them.
-      # --------------------------------------------------------
+      # Only brightness/colour-control lights that are already on.
+      on_lights: >-
+        {{
+          expand(target_lights)
+          | selectattr('state', 'eq', 'on')
+          | map(attribute='entity_id')
+          | list
+        }}
 
+      any_light_on: >-
+        {{ on_lights | count > 0 }}
+
+      # Matter event type from the BILRESA button entity.
+      event_type: >-
+        {{
+          trigger.to_state.attributes.event_type
+          if trigger.to_state.attributes.event_type is defined
+          else ''
+        }}
+
+      # Colour cycle order.
       colour_order:
         - warm_white
         - red
@@ -459,11 +430,6 @@ action:
         - purple
         - pink
         - cool_white
-
-
-      # --------------------------------------------------------
-      # COLOUR PRESET RGB VALUES
-      # --------------------------------------------------------
 
       colour_map:
         warm_white: [255, 166, 87]
@@ -477,264 +443,100 @@ action:
         pink: [255, 0, 120]
         cool_white: [220, 235, 255]
 
-
-      # --------------------------------------------------------
-      # ONLY KEEP COLOURS SELECTED IN THE BLUEPRINT
-      # --------------------------------------------------------
-
       active_colours: >-
         {{ colour_order | select('in', chosen_colours) | list }}
 
 
-      # --------------------------------------------------------
-      # LIGHTS CURRENTLY ON
-      #
-      # Brightness and colour actions ONLY target lights already
-      # on. This means scrolling or changing colour can never
-      # accidentally turn an off light on.
-      # --------------------------------------------------------
-
-      on_lights: >-
-        {{
-          expand(lights)
-          | selectattr('state', 'eq', 'on')
-          | map(attribute='entity_id')
-          | list
-        }}
-
-
-      any_light_on: >-
-        {{ on_lights | count > 0 }}
-
-
-      # --------------------------------------------------------
-      # EVENT TYPE
-      #
-      # BILRESA:
-      # multi_press_1 = normal single push
-      # long_press    = held push
-      # --------------------------------------------------------
-
-      event_type: >-
-        {{
-          trigger.to_state.attributes.event_type
-          if trigger.to_state.attributes.event_type is defined
-          else ''
-        }}
-
-
-      # --------------------------------------------------------
-      # NUMBER OF SCROLL CLICKS
-      #
-      # BILRESA can combine several wheel clicks into one event.
-      # If the attribute is missing we simply treat it as 1.
-      # --------------------------------------------------------
-
-      scroll_clicks: >-
-        {{
-          trigger.to_state.attributes.totalNumberOfPressesCounted
-          | int(1)
-        }}
-
-
-      # --------------------------------------------------------
-      # TOTAL BRIGHTNESS CHANGE
-      #
-      # Never allow a single action to exceed 100%.
-      # --------------------------------------------------------
-
-      brightness_change: >-
-        {{
-          [
-            (
-              (step_pct | float)
-              * (scroll_clicks | int(1))
-            ),
-            100
-          ]
-          | min
-        }}
-
-
-  # ------------------------------------------------------------
-  # STALE EVENT PROTECTION
-  #
-  # Prevent an old Matter event being replayed when the device,
-  # Matter server or Home Assistant reconnects.
-  # ------------------------------------------------------------
-
+  # Prevent stale Matter events being replayed after a reconnect.
   - condition: template
     value_template: >-
       {{
-        (now() - trigger.to_state.last_changed).total_seconds() < 5
-
-        and
-
-        (
+        trigger.to_state.attributes.event_type is defined
+        and trigger.to_state.attributes.event_type != none
+        and (now() - trigger.to_state.last_changed).total_seconds() < 5
+        and (
           now()
-          -
-          (
-            trigger.to_state.state
-            | as_datetime
-            | as_local
-          )
+          - (trigger.to_state.state | as_datetime | as_local)
         ).total_seconds() < 5
       }}
 
 
-  # ------------------------------------------------------------
-  # BUTTON ACTIONS
-  # ------------------------------------------------------------
-
   - choose:
 
-
       # ========================================================
-      # RIGHT
-      #
-      # Buttons:
-      # 1
-      # 4
-      # 7
-      #
-      # BRIGHTNESS UP
-      #
-      # IMPORTANT:
-      # No colour value is sent.
-      # No power-off lights are targeted.
+      # RIGHT: Buttons 1, 4, 7
+      # Brightness up only. No colour data is sent.
       # ========================================================
-
       - conditions:
-
           - condition: template
             value_template: >-
               {{
-                trigger.id in
-                [
-                  'preset1_right',
-                  'preset2_right',
-                  'preset3_right'
-                ]
-
-                and
-
-                on_lights | count > 0
+                trigger.id in ['preset1_right', 'preset2_right', 'preset3_right']
+                and on_lights | count > 0
               }}
-
         sequence:
-
-          - action: light.turn_on
-
-            target:
-              entity_id: "{{ on_lights }}"
-
-            data:
-              brightness_step_pct: "{{ brightness_change }}"
-              transition: "{{ brightness_trans }}"
+          - repeat:
+              for_each: "{{ on_lights }}"
+              sequence:
+                - variables:
+                    current_brightness: >-
+                      {{ state_attr(repeat.item, 'brightness') | int(1) }}
+                    new_brightness: >-
+                      {% set raw = (current_brightness | float) + (255 * (step_pct | float) / 100) %}
+                      {{ [255, [1, raw] | max] | min | round(0) | int }}
+                - action: light.turn_on
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    brightness: "{{ new_brightness }}"
+                    transition: "{{ brightness_trans }}"
 
 
       # ========================================================
-      # LEFT
-      #
-      # Buttons:
-      # 2
-      # 5
-      # 8
-      #
-      # BRIGHTNESS DOWN
-      #
-      # IMPORTANT:
-      # No colour value is sent.
-      # No power-off lights are targeted.
+      # LEFT: Buttons 2, 5, 8
+      # Brightness down only. Minimum is 1, so scrolling cannot
+      # turn the lights off. No colour data is sent.
       # ========================================================
-
       - conditions:
-
           - condition: template
             value_template: >-
               {{
-                trigger.id in
-                [
-                  'preset1_left',
-                  'preset2_left',
-                  'preset3_left'
-                ]
-
-                and
-
-                on_lights | count > 0
+                trigger.id in ['preset1_left', 'preset2_left', 'preset3_left']
+                and on_lights | count > 0
               }}
-
         sequence:
-
-          - action: light.turn_on
-
-            target:
-              entity_id: "{{ on_lights }}"
-
-            data:
-              brightness_step_pct: >-
-                {{ 0 - (brightness_change | float) }}
-
-              transition: "{{ brightness_trans }}"
+          - repeat:
+              for_each: "{{ on_lights }}"
+              sequence:
+                - variables:
+                    current_brightness: >-
+                      {{ state_attr(repeat.item, 'brightness') | int(255) }}
+                    new_brightness: >-
+                      {% set raw = (current_brightness | float) - (255 * (step_pct | float) / 100) %}
+                      {{ [255, [1, raw] | max] | min | round(0) | int }}
+                - action: light.turn_on
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    brightness: "{{ new_brightness }}"
+                    transition: "{{ brightness_trans }}"
 
 
       # ========================================================
-      # NORMAL PUSH
-      #
-      # Buttons:
-      # 3
-      # 6
-      # 9
-      #
-      # NEXT COLOUR
-      #
-      # ONLY multi_press_1 changes colour.
-      #
-      # Holding the button does NOT enter this section.
+      # NORMAL PUSH: Buttons 3, 6, 9
+      # Change colour only.
       # ========================================================
-
       - conditions:
-
           - condition: template
             value_template: >-
               {{
-                trigger.id in
-                [
-                  'preset1_push',
-                  'preset2_push',
-                  'preset3_push'
-                ]
-
-                and
-
-                event_type == 'multi_press_1'
-
-                and
-
-                on_lights | count > 0
-
-                and
-
-                active_colours | count > 0
+                trigger.id in ['preset1_push', 'preset2_push', 'preset3_push']
+                and event_type == 'multi_press_1'
+                and on_lights | count > 0
+                and active_colours | count > 0
               }}
-
         sequence:
-
-          # ----------------------------------------------------
-          # Work out which colour comes next.
-          #
-          # We look at the first light that is currently on.
-          #
-          # The nearest selected preset to its current colour is
-          # found, then we move to the next preset.
-          #
-          # This means small RGB differences reported by the bulb
-          # do not break the colour cycle.
-          # ----------------------------------------------------
-
           - variables:
-
               reference_light: >-
                 {{ on_lights[0] }}
 
@@ -742,158 +544,71 @@ action:
                 {{ state_attr(reference_light, 'rgb_color') }}
 
               next_rgb: >-
-                {% set ns = namespace(
-                  best_index=-1,
-                  best_distance=999999999
-                ) %}
+                {% set ns = namespace(best_index=-1, best_distance=999999999) %}
 
                 {% if current_rgb is not none %}
-
                   {% for colour_name in active_colours %}
-
                     {% set rgb = colour_map[colour_name] %}
-
-                    {% set red_difference =
-                      (current_rgb[0] | int)
-                      -
-                      (rgb[0] | int)
-                    %}
-
-                    {% set green_difference =
-                      (current_rgb[1] | int)
-                      -
-                      (rgb[1] | int)
-                    %}
-
-                    {% set blue_difference =
-                      (current_rgb[2] | int)
-                      -
-                      (rgb[2] | int)
-                    %}
-
+                    {% set red_difference = (current_rgb[0] | int) - (rgb[0] | int) %}
+                    {% set green_difference = (current_rgb[1] | int) - (rgb[1] | int) %}
+                    {% set blue_difference = (current_rgb[2] | int) - (rgb[2] | int) %}
                     {% set distance =
                       (red_difference * red_difference)
-                      +
-                      (green_difference * green_difference)
-                      +
-                      (blue_difference * blue_difference)
+                      + (green_difference * green_difference)
+                      + (blue_difference * blue_difference)
                     %}
 
                     {% if distance < ns.best_distance %}
-
                       {% set ns.best_distance = distance %}
                       {% set ns.best_index = loop.index0 %}
-
                     {% endif %}
-
                   {% endfor %}
-
                 {% endif %}
-
 
                 {% if ns.best_index == -1 %}
-
                   {% set next_index = 0 %}
-
                 {% else %}
-
-                  {% set next_index =
-                    (ns.best_index + 1)
-                    %
-                    (active_colours | count)
-                  %}
-
+                  {% set next_index = (ns.best_index + 1) % (active_colours | count) %}
                 {% endif %}
-
 
                 {{ colour_map[active_colours[next_index]] }}
 
-
-          # ----------------------------------------------------
-          # THIS IS THE ONLY LIGHT ACTION IN THE BLUEPRINT
-          # WHICH CONTAINS COLOUR DATA.
-          # ----------------------------------------------------
-
+          # This is the only action in the blueprint that sends colour data.
           - action: light.turn_on
-
             target:
               entity_id: "{{ on_lights }}"
-
             data:
               rgb_color: "{{ next_rgb }}"
               transition: "{{ colour_trans }}"
 
 
       # ========================================================
-      # HOLD PUSH
-      #
-      # Buttons:
-      # 3
-      # 6
-      # 9
-      #
-      # TOGGLE WHOLE LIGHT SET
-      #
-      # If ANY selected light is ON:
-      #     Turn ALL lights OFF.
-      #
-      # If ALL selected lights are OFF:
-      #     Turn ALL lights ON.
-      #
-      # No RGB / colour temperature / HS colour is sent here.
+      # HOLD PUSH: Buttons 3, 6, 9
+      # Toggle only the light set assigned to that preset.
+      # No colour data is sent.
       # ========================================================
-
       - conditions:
-
           - condition: template
             value_template: >-
               {{
-                trigger.id in
-                [
-                  'preset1_push',
-                  'preset2_push',
-                  'preset3_push'
-                ]
-
-                and
-
-                event_type == 'long_press'
+                trigger.id in ['preset1_push', 'preset2_push', 'preset3_push']
+                and event_type == 'long_press'
               }}
-
         sequence:
-
           - choose:
-
-              # ------------------------------------------------
-              # AT LEAST ONE LIGHT IS ON
-              # -> TURN THE WHOLE SET OFF
-              # ------------------------------------------------
-
+              # If any light in this preset is on, switch the whole set off.
               - conditions:
-
                   - condition: template
                     value_template: >-
                       {{ any_light_on }}
-
                 sequence:
-
                   - action: light.turn_off
-
                     target:
-                      entity_id: "{{ lights }}"
+                      entity_id: "{{ target_lights }}"
 
-
-            # --------------------------------------------------
-            # ALL LIGHTS ARE OFF
-            # -> TURN THE WHOLE SET ON
-            #
-            # No colour data is supplied, so Home Assistant/light
-            # integration can restore the light's existing state.
-            # --------------------------------------------------
-
+            # If all lights in this preset are off, switch the whole set on.
+            # No colour is supplied, so each light keeps/restores its last colour.
             default:
-
               - action: light.turn_on
-
                 target:
-                  entity_id: "{{ lights }}"
+                  entity_id: "{{ target_lights }}"
