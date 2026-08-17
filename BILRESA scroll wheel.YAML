@@ -223,10 +223,9 @@ blueprint:
       icon: mdi:numeric-2-circle
       collapsed: true
       description: |
-        Buttons 4 / 5 / 6. Duplicate Preset 1 to reuse its lights and behaviour, while keeping these physical button entities.
+        Buttons 4 / 5 / 6. Configure the complete Preset 2 profile here.
 
-        Colours are an ordered list. Add, edit, delete, and drag them into the
-        exact order you want the centre button to cycle through.
+        Duplicate Preset 1 reuses Preset 1's lights and all behaviour settings.
       input:
 
         preset_2_mode:
@@ -294,7 +293,6 @@ blueprint:
 
         preset_2_brightness_step:
           name: Brightness Per Wheel Detent
-          description: Percentage changed for each reported wheel detent.
           default: 10
           selector:
             number:
@@ -306,7 +304,6 @@ blueprint:
 
         preset_2_brightness_min:
           name: Minimum Brightness
-          description: Scrolling left will never go below this percentage.
           default: 1
           selector:
             number:
@@ -318,7 +315,6 @@ blueprint:
 
         preset_2_brightness_max:
           name: Maximum Brightness
-          description: Scrolling right will never go above this percentage.
           default: 100
           selector:
             number:
@@ -343,7 +339,7 @@ blueprint:
           name: Colours to Cycle
           description: |
             Add any colours you want with the RGB colour picker. Drag the rows
-            to change the cycle order. The name is only for display.
+            to change the cycle order. Ignored when duplicating Preset 1.
           default:
             - name: Warm White
               colour: [255, 166, 87]
@@ -407,10 +403,9 @@ blueprint:
       icon: mdi:numeric-3-circle
       collapsed: true
       description: |
-        Buttons 7 / 8 / 9. Duplicate Preset 1 or 2 to reuse that profile, while keeping these physical button entities.
+        Buttons 7 / 8 / 9. Configure the complete Preset 3 profile here.
 
-        Colours are an ordered list. Add, edit, delete, and drag them into the
-        exact order you want the centre button to cycle through.
+        Duplicate Preset 1 or Preset 2 to reuse that complete light profile.
       input:
 
         preset_3_mode:
@@ -480,7 +475,6 @@ blueprint:
 
         preset_3_brightness_step:
           name: Brightness Per Wheel Detent
-          description: Percentage changed for each reported wheel detent.
           default: 10
           selector:
             number:
@@ -492,7 +486,6 @@ blueprint:
 
         preset_3_brightness_min:
           name: Minimum Brightness
-          description: Scrolling left will never go below this percentage.
           default: 1
           selector:
             number:
@@ -504,7 +497,6 @@ blueprint:
 
         preset_3_brightness_max:
           name: Maximum Brightness
-          description: Scrolling right will never go above this percentage.
           default: 100
           selector:
             number:
@@ -529,7 +521,7 @@ blueprint:
           name: Colours to Cycle
           description: |
             Add any colours you want with the RGB colour picker. Drag the rows
-            to change the cycle order. The name is only for display.
+            to change the cycle order. Ignored when duplicating another preset.
           default:
             - name: Warm White
               colour: [255, 166, 87]
@@ -584,6 +576,7 @@ blueprint:
               step: 0.1
               unit_of_measurement: s
               mode: slider
+
 
 # ==============================================================
 # AUTOMATION MODE
@@ -759,8 +752,6 @@ action:
           | int(1)
         }}
 
-      # Kept only so automations created with the older blueprint colour
-      # selector continue to work after importing this version.
       legacy_colour_order:
         - warm_white
         - red
