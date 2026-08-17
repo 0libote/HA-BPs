@@ -12,7 +12,9 @@ blueprint:
     - Be disabled.
     - Duplicate another preset's complete light profile.
     - Use its own brightness step, limits and transition.
-    - Use its own colour list and colour transition.
+    - Use its own ordered colour list and colour transition.
+    - Add unlimited custom colours with Home Assistant's RGB colour picker.
+    - Reorder colours by dragging them in the blueprint editor.
     - Choose whether Tap = Colour / Hold = Power, or Tap = Power / Hold = Colour.
 
     Wheel movement uses Matter's totalNumberOfPressesCounted value, so a quick
@@ -27,22 +29,22 @@ blueprint:
   source_url: https://github.com/0libote/HA-BPs/blob/main/BILRESA%20scroll%20wheel.YAML
 
   homeassistant:
-    min_version: 2024.6.0
+    min_version: 2025.7.0
 
   input:
 
     # ============================================================
-    # PRESET 1 - SETUP
+    # PRESET 1
     # ============================================================
-    preset_1_setup:
-      name: Preset 1 - Setup
+    preset_1:
+      name: Preset 1
       icon: mdi:numeric-1-circle
       collapsed: true
       description: |
-        Buttons 1 / 2 / 3.
+        Buttons 1 / 2 / 3. Configure the complete Preset 1 profile here.
 
-        Custom = use the lights and behaviour configured for Preset 1.
-        Disabled = ignore all Preset 1 controls.
+        Colours are an ordered list. Add, edit, delete, and drag them into the
+        exact order you want the centre button to cycle through.
       input:
 
         preset_1_mode:
@@ -93,21 +95,6 @@ blueprint:
             entity:
               filter:
                 - domain: event
-
-
-    # ============================================================
-    # PRESET 1 - BEHAVIOUR
-    # ============================================================
-    preset_1_behaviour:
-      name: Preset 1 - Behaviour & Advanced
-      icon: mdi:tune-variant
-      collapsed: true
-      description: |
-        Detailed behaviour for Preset 1.
-
-        These settings are also inherited by another preset if that preset is
-        configured to duplicate Preset 1.
-      input:
 
         preset_1_centre_layout:
           name: Centre Button Behaviour
@@ -170,37 +157,52 @@ blueprint:
 
         preset_1_colour_presets:
           name: Colours to Cycle
+          description: |
+            Add any colours you want with the RGB colour picker. Drag the rows
+            to change the cycle order. The name is only for display.
           default:
-            - warm_white
-            - red
-            - green
-            - blue
-            - purple
+            - name: Warm White
+              colour: [255, 166, 87]
+            - name: Soft White
+              colour: [255, 214, 170]
+            - name: Daylight
+              colour: [255, 244, 229]
+            - name: Red
+              colour: [255, 0, 0]
+            - name: Orange
+              colour: [255, 80, 0]
+            - name: Yellow
+              colour: [255, 220, 0]
+            - name: Green
+              colour: [0, 255, 0]
+            - name: Cyan
+              colour: [0, 255, 255]
+            - name: Sky Blue
+              colour: [0, 170, 255]
+            - name: Blue
+              colour: [0, 80, 255]
+            - name: Purple
+              colour: [160, 0, 255]
+            - name: Pink
+              colour: [255, 0, 120]
+            - name: Cool White
+              colour: [220, 235, 255]
           selector:
-            select:
+            object:
               multiple: true
-              mode: dropdown
-              options:
-                - label: Warm White
-                  value: warm_white
-                - label: Red
-                  value: red
-                - label: Orange
-                  value: orange
-                - label: Yellow
-                  value: yellow
-                - label: Green
-                  value: green
-                - label: Cyan
-                  value: cyan
-                - label: Blue
-                  value: blue
-                - label: Purple
-                  value: purple
-                - label: Pink
-                  value: pink
-                - label: Cool White
-                  value: cool_white
+              label_field: name
+              description_field: colour
+              fields:
+                name:
+                  label: Name
+                  required: true
+                  selector:
+                    text:
+                colour:
+                  label: Colour
+                  required: true
+                  selector:
+                    color_rgb:
 
         preset_1_colour_transition:
           name: Colour Transition
@@ -213,19 +215,18 @@ blueprint:
               unit_of_measurement: s
               mode: slider
 
-
     # ============================================================
-    # PRESET 2 - SETUP
+    # PRESET 2
     # ============================================================
-    preset_2_setup:
-      name: Preset 2 - Setup
+    preset_2:
+      name: Preset 2
       icon: mdi:numeric-2-circle
       collapsed: true
       description: |
-        Buttons 4 / 5 / 6.
+        Buttons 4 / 5 / 6. Duplicate Preset 1 to reuse its lights and behaviour, while keeping these physical button entities.
 
-        Duplicate Preset 1 = reuse Preset 1's lights and every behaviour setting.
-        You only need to configure Buttons 4 / 5 / 6.
+        Colours are an ordered list. Add, edit, delete, and drag them into the
+        exact order you want the centre button to cycle through.
       input:
 
         preset_2_mode:
@@ -279,18 +280,6 @@ blueprint:
               filter:
                 - domain: event
 
-
-    # ============================================================
-    # PRESET 2 - BEHAVIOUR
-    # ============================================================
-    preset_2_behaviour:
-      name: Preset 2 - Behaviour & Advanced
-      icon: mdi:tune-variant
-      collapsed: true
-      description: |
-        Used only when Preset 2 is set to Custom profile.
-      input:
-
         preset_2_centre_layout:
           name: Centre Button Behaviour
           default: tap_colour_hold_power
@@ -305,6 +294,7 @@ blueprint:
 
         preset_2_brightness_step:
           name: Brightness Per Wheel Detent
+          description: Percentage changed for each reported wheel detent.
           default: 10
           selector:
             number:
@@ -316,6 +306,7 @@ blueprint:
 
         preset_2_brightness_min:
           name: Minimum Brightness
+          description: Scrolling left will never go below this percentage.
           default: 1
           selector:
             number:
@@ -327,6 +318,7 @@ blueprint:
 
         preset_2_brightness_max:
           name: Maximum Brightness
+          description: Scrolling right will never go above this percentage.
           default: 100
           selector:
             number:
@@ -349,37 +341,52 @@ blueprint:
 
         preset_2_colour_presets:
           name: Colours to Cycle
+          description: |
+            Add any colours you want with the RGB colour picker. Drag the rows
+            to change the cycle order. The name is only for display.
           default:
-            - warm_white
-            - red
-            - green
-            - blue
-            - purple
+            - name: Warm White
+              colour: [255, 166, 87]
+            - name: Soft White
+              colour: [255, 214, 170]
+            - name: Daylight
+              colour: [255, 244, 229]
+            - name: Red
+              colour: [255, 0, 0]
+            - name: Orange
+              colour: [255, 80, 0]
+            - name: Yellow
+              colour: [255, 220, 0]
+            - name: Green
+              colour: [0, 255, 0]
+            - name: Cyan
+              colour: [0, 255, 255]
+            - name: Sky Blue
+              colour: [0, 170, 255]
+            - name: Blue
+              colour: [0, 80, 255]
+            - name: Purple
+              colour: [160, 0, 255]
+            - name: Pink
+              colour: [255, 0, 120]
+            - name: Cool White
+              colour: [220, 235, 255]
           selector:
-            select:
+            object:
               multiple: true
-              mode: dropdown
-              options:
-                - label: Warm White
-                  value: warm_white
-                - label: Red
-                  value: red
-                - label: Orange
-                  value: orange
-                - label: Yellow
-                  value: yellow
-                - label: Green
-                  value: green
-                - label: Cyan
-                  value: cyan
-                - label: Blue
-                  value: blue
-                - label: Purple
-                  value: purple
-                - label: Pink
-                  value: pink
-                - label: Cool White
-                  value: cool_white
+              label_field: name
+              description_field: colour
+              fields:
+                name:
+                  label: Name
+                  required: true
+                  selector:
+                    text:
+                colour:
+                  label: Colour
+                  required: true
+                  selector:
+                    color_rgb:
 
         preset_2_colour_transition:
           name: Colour Transition
@@ -392,19 +399,18 @@ blueprint:
               unit_of_measurement: s
               mode: slider
 
-
     # ============================================================
-    # PRESET 3 - SETUP
+    # PRESET 3
     # ============================================================
-    preset_3_setup:
-      name: Preset 3 - Setup
+    preset_3:
+      name: Preset 3
       icon: mdi:numeric-3-circle
       collapsed: true
       description: |
-        Buttons 7 / 8 / 9.
+        Buttons 7 / 8 / 9. Duplicate Preset 1 or 2 to reuse that profile, while keeping these physical button entities.
 
-        Duplicate Preset 1 or Preset 2 to reuse that profile's lights and every
-        behaviour setting. You only need to configure Buttons 7 / 8 / 9.
+        Colours are an ordered list. Add, edit, delete, and drag them into the
+        exact order you want the centre button to cycle through.
       input:
 
         preset_3_mode:
@@ -460,18 +466,6 @@ blueprint:
               filter:
                 - domain: event
 
-
-    # ============================================================
-    # PRESET 3 - BEHAVIOUR
-    # ============================================================
-    preset_3_behaviour:
-      name: Preset 3 - Behaviour & Advanced
-      icon: mdi:tune-variant
-      collapsed: true
-      description: |
-        Used only when Preset 3 is set to Custom profile.
-      input:
-
         preset_3_centre_layout:
           name: Centre Button Behaviour
           default: tap_colour_hold_power
@@ -486,6 +480,7 @@ blueprint:
 
         preset_3_brightness_step:
           name: Brightness Per Wheel Detent
+          description: Percentage changed for each reported wheel detent.
           default: 10
           selector:
             number:
@@ -497,6 +492,7 @@ blueprint:
 
         preset_3_brightness_min:
           name: Minimum Brightness
+          description: Scrolling left will never go below this percentage.
           default: 1
           selector:
             number:
@@ -508,6 +504,7 @@ blueprint:
 
         preset_3_brightness_max:
           name: Maximum Brightness
+          description: Scrolling right will never go above this percentage.
           default: 100
           selector:
             number:
@@ -530,37 +527,52 @@ blueprint:
 
         preset_3_colour_presets:
           name: Colours to Cycle
+          description: |
+            Add any colours you want with the RGB colour picker. Drag the rows
+            to change the cycle order. The name is only for display.
           default:
-            - warm_white
-            - red
-            - green
-            - blue
-            - purple
+            - name: Warm White
+              colour: [255, 166, 87]
+            - name: Soft White
+              colour: [255, 214, 170]
+            - name: Daylight
+              colour: [255, 244, 229]
+            - name: Red
+              colour: [255, 0, 0]
+            - name: Orange
+              colour: [255, 80, 0]
+            - name: Yellow
+              colour: [255, 220, 0]
+            - name: Green
+              colour: [0, 255, 0]
+            - name: Cyan
+              colour: [0, 255, 255]
+            - name: Sky Blue
+              colour: [0, 170, 255]
+            - name: Blue
+              colour: [0, 80, 255]
+            - name: Purple
+              colour: [160, 0, 255]
+            - name: Pink
+              colour: [255, 0, 120]
+            - name: Cool White
+              colour: [220, 235, 255]
           selector:
-            select:
+            object:
               multiple: true
-              mode: dropdown
-              options:
-                - label: Warm White
-                  value: warm_white
-                - label: Red
-                  value: red
-                - label: Orange
-                  value: orange
-                - label: Yellow
-                  value: yellow
-                - label: Green
-                  value: green
-                - label: Cyan
-                  value: cyan
-                - label: Blue
-                  value: blue
-                - label: Purple
-                  value: purple
-                - label: Pink
-                  value: pink
-                - label: Cool White
-                  value: cool_white
+              label_field: name
+              description_field: colour
+              fields:
+                name:
+                  label: Name
+                  required: true
+                  selector:
+                    text:
+                colour:
+                  label: Colour
+                  required: true
+                  selector:
+                    color_rgb:
 
         preset_3_colour_transition:
           name: Colour Transition
@@ -572,7 +584,6 @@ blueprint:
               step: 0.1
               unit_of_measurement: s
               mode: slider
-
 
 # ==============================================================
 # AUTOMATION MODE
@@ -748,7 +759,9 @@ action:
           | int(1)
         }}
 
-      colour_order:
+      # Kept only so automations created with the older blueprint colour
+      # selector continue to work after importing this version.
+      legacy_colour_order:
         - warm_white
         - red
         - orange
@@ -760,7 +773,7 @@ action:
         - pink
         - cool_white
 
-      colour_map:
+      legacy_colour_map:
         warm_white: [255, 166, 87]
         red: [255, 0, 0]
         orange: [255, 80, 0]
@@ -920,8 +933,38 @@ action:
           | list
         }}
 
+      # New configurations contain ordered objects:
+      #   - name: Red
+      #     colour: [255, 0, 0]
+      #
+      # Older configurations contain a list of preset-name strings. They are
+      # normalised here using the old fixed order, preserving old behaviour.
       active_colours: >-
-        {{ colour_order | select('in', chosen_colours) | list }}
+        {% set ns = namespace(items=[]) %}
+
+        {% if chosen_colours | count > 0 and chosen_colours[0] is string %}
+
+          {% for colour_name in legacy_colour_order %}
+            {% if colour_name in chosen_colours and colour_name in legacy_colour_map %}
+              {% set ns.items = ns.items + [legacy_colour_map[colour_name]] %}
+            {% endif %}
+          {% endfor %}
+
+        {% else %}
+
+          {% for item in chosen_colours %}
+            {% if
+              item is mapping
+              and item.colour is defined
+              and item.colour | count == 3
+            %}
+              {% set ns.items = ns.items + [item.colour] %}
+            {% endif %}
+          {% endfor %}
+
+        {% endif %}
+
+        {{ ns.items }}
 
       centre_action: >-
         {{
@@ -965,10 +1008,6 @@ action:
 
       # ========================================================
       # RIGHT - BRIGHTNESS UP
-      #
-      # Overshoot is clamped to the configured maximum.
-      # Example:
-      # Current 70%, 10% per detent, 4 detents -> 100%, not 110%.
       # ========================================================
       - conditions:
           - condition: template
@@ -1025,9 +1064,6 @@ action:
 
       # ========================================================
       # LEFT - BRIGHTNESS DOWN
-      #
-      # Overshoot is clamped to the configured minimum.
-      # Scrolling never turns a light off.
       # ========================================================
       - conditions:
           - condition: template
@@ -1084,11 +1120,6 @@ action:
 
       # ========================================================
       # CENTRE BUTTON - POWER
-      #
-      # Which gesture reaches here is selected per preset:
-      # Tap or Hold.
-      #
-      # This sends no colour or brightness data.
       # ========================================================
       - conditions:
           - condition: template
@@ -1101,7 +1132,6 @@ action:
         sequence:
           - choose:
 
-              # If any light is on, switch the whole target set off.
               - conditions:
                   - condition: template
                     value_template: >-
@@ -1116,8 +1146,6 @@ action:
                     target:
                       entity_id: "{{ target_lights }}"
 
-            # Otherwise switch the whole target set on.
-            # No colour data is sent, preserving/restoring the bulbs' colour.
             default:
               - action: light.turn_on
                 target:
@@ -1126,12 +1154,6 @@ action:
 
       # ========================================================
       # CENTRE BUTTON - COLOUR
-      #
-      # Which gesture reaches here is selected per preset:
-      # Tap or Hold.
-      #
-      # This is the ONLY action in the blueprint that sends colour data.
-      # It only changes lights which are already on.
       # ========================================================
       - conditions:
           - condition: template
@@ -1160,9 +1182,7 @@ action:
 
                 {% if current_rgb is not none %}
 
-                  {% for colour_name in active_colours %}
-
-                    {% set rgb = colour_map[colour_name] %}
+                  {% for rgb in active_colours %}
 
                     {% set red_difference =
                       (current_rgb[0] | int)
@@ -1209,7 +1229,7 @@ action:
                   %}
                 {% endif %}
 
-                {{ colour_map[active_colours[next_index]] }}
+                {{ active_colours[next_index] }}
 
           - action: light.turn_on
             target:
