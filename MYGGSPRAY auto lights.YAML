@@ -13,34 +13,26 @@ blueprint:
       threshold, and every selected light is off and available.
     - Sends brightness and colour in the same light.turn_on call, avoiding an
       intentional "turn on, then dim/recolour" sequence.
-    - Turns the lights back off after occupancy has stayed clear for the
-      configured time.
-    - Can remember each light's last normal ON brightness/colour while idle,
-      restore that profile just before automatic switch-off, then turn it off.
-    - Manual OFF immediately releases control. Manual brightness/colour changes
-      made through Home Assistant also release control at cleanup.
-    - Handles unavailable sensors/lights and includes a maximum runtime for a
-      stuck motion sensor.
+    - Turns the lights back off after occupancy has stayed continuously clear
+      for the configured time.
+    - Remembers each light's latest normal ON brightness/colour while idle and
+      can restore that profile immediately before automatic switch-off.
+    - Manual/external OFF immediately releases the current motion-light session.
+    - Recovers from stale session locks when all target lights are already off.
+    - Cleans up after sensor/light faults and has a maximum-runtime failsafe.
     - Supports extra user-defined activation conditions.
 
     Previous-profile memory:
-    Home Assistant reports brightness and active colour as null while a light
-    is off. To work around that without requiring helpers, this blueprint keeps
-    dynamic profile scenes whenever target lights are normally ON. Tracking is
-    locked while motion lighting is active, so the temporary profile cannot
-    overwrite the remembered one.
+    Home Assistant reports active brightness/colour attributes as null while a
+    light is off. Without requiring helpers, this blueprint keeps temporary
+    dynamic scenes whenever target lights are normally ON. Profile tracking is
+    locked while motion lighting owns the lights, so the automation profile
+    cannot overwrite the remembered normal profile.
 
     Dynamic scenes are temporary. They are cleared by a Home Assistant restart
-    or scene reload and will be relearned the next time each light is used
-    normally. If no profile has been learned yet, cleanup still turns the light
-    off, but cannot pre-load its previous brightness/colour first.
-
-    Manual override handling:
-    The blueprint does not compare requested RGB/brightness with the values a
-    bulb reports back. Many integrations round or convert those values, which
-    can otherwise falsely cancel automatic switch-off. Instead, explicit user
-    changes made through Home Assistant are detected from the state context.
-    Manual OFF is always detected directly.
+    or scene reload and are relearned the next time each light is used normally.
+    If no profile has been learned yet, cleanup still turns the light off but
+    cannot pre-load its previous brightness/colour first.
 
     Flash prevention:
     Home Assistant cannot generically pre-stage brightness/colour while a light
@@ -187,7 +179,7 @@ blueprint:
               enable_day: true
 
     safety:
-      name: Restore, Override & Safety
+      name: Restore & Safety
       icon: mdi:shield-check-outline
       collapsed: true
       input:
@@ -196,16 +188,6 @@ blueprint:
           description: |
             Remember the latest normal ON profile while idle. Before automatic
             switch-off, restore it and then turn the light off.
-          default: true
-          selector:
-            boolean:
-
-        respect_manual_changes:
-          name: Respect Manual Changes
-          description: |
-            Recommended. Manual OFF releases immediately. Explicit brightness
-            or colour changes made through Home Assistant release control at
-            cleanup without relying on exact bulb-reported colour values.
           default: true
           selector:
             boolean:
@@ -228,87 +210,116 @@ variables:
   automation_colour_temperature: !input colour_temperature
   automation_turn_on_transition: !input turn_on_transition
   restore_previous_profile: !input restore_previous_profile
-  respect_manual_changes: !input respect_manual_changes
   active_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
   active_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
-  override_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_override' }}"
-  override_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_override' }}"
 
 trigger:
   - platform: state
     entity_id: !input motion_sensor
-    from: "off"
     to: "on"
-    id: motion_detected
+    id: motion_on
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+    id: motion_off
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "unavailable"
+    for:
+      seconds: 30
+    id: motion_fault
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "unknown"
+    for:
+      seconds: 30
+    id: motion_fault
 
   - platform: state
     entity_id: !input target_lights
-    id: track_light_profile
+    id: target_changed
+
+  - platform: state
+    entity_id: !input target_lights
+    to: "unavailable"
+    for:
+      seconds: 30
+    id: light_fault
 
 condition: []
 
 action:
   - choose:
-      - alias: Mark an explicit Home Assistant user takeover
+      - alias: Track normal profiles and manual OFF
         conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'track_light_profile' }}"
-
-          - condition: template
-            value_template: "{{ respect_manual_changes }}"
-
-          - condition: template
-            value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - condition: template
-            value_template: >
-              {{ trigger.to_state is not none
-                 and trigger.to_state.state == 'on'
-                 and trigger.to_state.context.user_id is not none }}
+            value_template: "{{ trigger.id == 'target_changed' }}"
         sequence:
-          - action: scene.create
-            continue_on_error: true
-            data:
-              scene_id: "{{ override_scene_id }}"
-              snapshot_entities:
-                - "{{ motion_sensor }}"
+          - choose:
+              - alias: OFF means the motion session no longer owns the lights
+                conditions:
+                  - condition: template
+                    value_template: >
+                      {{ active_scene_entity in
+                         (states.scene | map(attribute='entity_id') | list) }}
+                  - condition: template
+                    value_template: >
+                      {{ trigger.to_state is not none
+                         and trigger.to_state.state == 'off' }}
+                sequence:
+                  - action: scene.delete
+                    continue_on_error: true
+                    target:
+                      entity_id: "{{ active_scene_entity }}"
 
-      - alias: Remember normal target-light profiles while idle
+              - alias: Remember a normal ON profile while idle
+                conditions:
+                  - condition: template
+                    value_template: "{{ restore_previous_profile }}"
+                  - condition: template
+                    value_template: >
+                      {{ active_scene_entity not in
+                         (states.scene | map(attribute='entity_id') | list) }}
+                  - condition: template
+                    value_template: >
+                      {{ trigger.to_state is not none
+                         and trigger.to_state.state == 'on' }}
+                sequence:
+                  - variables:
+                      profile_scene_id: >
+                        {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                           ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
+                  - action: scene.create
+                    continue_on_error: true
+                    data:
+                      scene_id: "{{ profile_scene_id }}"
+                      snapshot_entities:
+                        - "{{ trigger.entity_id }}"
+
+      - alias: Start motion lighting
         conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'track_light_profile' }}"
+            value_template: "{{ trigger.id == 'motion_on' }}"
         sequence:
-          - condition: template
-            value_template: "{{ restore_previous_profile }}"
+          - alias: Recover stale ownership if every target light is already off
+            if:
+              - condition: template
+                value_template: >
+                  {{ active_scene_entity in
+                     (states.scene | map(attribute='entity_id') | list)
+                     and (target_lights | count) > 0
+                     and (expand(target_lights)
+                          | rejectattr('state', 'eq', 'off')
+                          | list | count) == 0 }}
+            then:
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
 
-          - condition: template
-            value_template: >
-              {{ active_scene_entity not in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - condition: template
-            value_template: >
-              {{ trigger.to_state is not none and trigger.to_state.state == 'on' }}
-
-          - variables:
-              profile_scene_id: >
-                {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
-                   ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
-
-          - action: scene.create
-            continue_on_error: true
-            data:
-              scene_id: "{{ profile_scene_id }}"
-              snapshot_entities:
-                - "{{ trigger.entity_id }}"
-
-      - alias: Run the motion-light session
-        conditions:
-          - condition: template
-            value_template: "{{ trigger.id == 'motion_detected' }}"
-        sequence:
           - condition: template
             value_template: >
               {{ active_scene_entity not in
@@ -333,13 +344,7 @@ action:
           - condition: and
             conditions: !input extra_activation_conditions
 
-          - alias: Clear any stale manual-override marker
-            action: scene.delete
-            continue_on_error: true
-            target:
-              entity_id: "{{ override_scene_entity }}"
-
-          - alias: Lock profile tracking for this motion session
+          - alias: Lock profile tracking for this session
             action: scene.create
             continue_on_error: true
             data:
@@ -396,7 +401,7 @@ action:
               seconds: 5
             continue_on_timeout: true
 
-          - alias: Abort safely if a light failed to turn on
+          - alias: Abort cleanly if a target light failed to report ON
             if:
               - condition: template
                 value_template: "{{ not wait.completed }}"
@@ -409,90 +414,86 @@ action:
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
-              - action: scene.delete
-                continue_on_error: true
-                target:
-                  entity_id: "{{ override_scene_entity }}"
               - stop: One or more target lights failed to report ON.
 
-          - alias: Wait for clear, manual OFF, fault, or maximum runtime
-            wait_for_trigger:
-              - platform: state
-                entity_id: !input motion_sensor
-                to: "off"
-                for: !input no_motion_duration
-                id: no_motion
-
-              - platform: state
-                entity_id: !input motion_sensor
-                to: "unavailable"
-                for:
-                  seconds: 30
-                id: motion_fault
-
-              - platform: state
-                entity_id: !input motion_sensor
-                to: "unknown"
-                for:
-                  seconds: 30
-                id: motion_fault
-
-              - platform: state
-                entity_id: !input target_lights
-                to: "off"
-                id: target_turned_off
-
-              - platform: state
-                entity_id: !input target_lights
-                to: "unavailable"
-                for:
-                  seconds: 30
-                id: light_fault
-
+          - alias: Wait for normal cleanup, with a maximum-runtime failsafe
+            wait_template: >
+              {{ active_scene_entity not in
+                 (states.scene | map(attribute='entity_id') | list) }}
             timeout: !input maximum_runtime
             continue_on_timeout: true
 
-          - variables:
-              end_reason: >-
-                {% if wait.trigger is none %}
-                  maximum_runtime
-                {% else %}
-                  {{ wait.trigger.id }}
-                {% endif %}
-
-          - alias: Manual OFF means the user/another automation owns it now
+          - alias: Stop this failsafe run if the session already ended normally
             if:
               - condition: template
-                value_template: >
-                  {{ respect_manual_changes and end_reason == 'target_turned_off' }}
+                value_template: "{{ wait.completed }}"
             then:
-              - action: scene.delete
-                continue_on_error: true
-                target:
-                  entity_id: "{{ active_scene_entity }}"
-              - action: scene.delete
-                continue_on_error: true
-                target:
-                  entity_id: "{{ override_scene_entity }}"
-              - stop: Motion-light ownership released after target light was switched off.
+              - stop: Motion-light session ended before maximum runtime.
 
-          - alias: Explicit Home Assistant user change means the user owns it now
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - alias: Restore remembered profiles before maximum-runtime OFF
             if:
               - condition: template
-                value_template: >
-                  {{ respect_manual_changes
-                     and override_scene_entity in
-                     (states.scene | map(attribute='entity_id') | list) }}
+                value_template: "{{ restore_previous_profile }}"
             then:
-              - action: scene.delete
-                continue_on_error: true
-                target:
-                  entity_id: "{{ active_scene_entity }}"
-              - action: scene.delete
-                continue_on_error: true
-                target:
-                  entity_id: "{{ override_scene_entity }}"
-              - stop: Motion-light ownership released after an explicit Home Assistant user change.
+              - repeat:
+                  for_each: "{{ target_lights }}"
+                  sequence:
+                    - variables:
+                        remembered_scene_entity: >
+                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                             ~ repeat.item.split('.')[1] ~ '_profile' }}
+                    - if:
+                        - condition: template
+                          value_template: >
+                            {{ remembered_scene_entity in
+                               (states.scene | map(attribute='entity_id') | list) }}
+                      then:
+                        - action: scene.turn_on
+                          continue_on_error: true
+                          target:
+                            entity_id: "{{ remembered_scene_entity }}"
+                          data:
+                            transition: 0
+
+          - action: light.turn_off
+            continue_on_error: true
+            target:
+              entity_id: "{{ target_lights }}"
+
+          - action: scene.delete
+            continue_on_error: true
+            target:
+              entity_id: "{{ active_scene_entity }}"
+
+      - alias: End motion lighting after continuous clear time
+        conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'motion_off' }}"
+        sequence:
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - delay: !input no_motion_duration
+
+          - condition: template
+            value_template: "{{ is_state(motion_sensor, 'off') }}"
+
+          - alias: Ignore an old OFF countdown if motion changed since it began
+            condition: template
+            value_template: >
+              {{ trigger.to_state.last_changed == states[motion_sensor].last_changed }}
+
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
 
           - alias: Restore remembered profiles before automatic OFF
             if:
@@ -524,26 +525,55 @@ action:
             target:
               entity_id: "{{ target_lights }}"
 
-          - wait_template: >
-              {{ (expand(target_lights)
-                  | rejectattr('state', 'eq', 'off')
-                  | rejectattr('state', 'eq', 'unavailable')
-                  | list | count) == 0 }}
-            timeout:
-              seconds: 5
-            continue_on_timeout: true
-
-          - alias: Unlock idle profile tracking
-            action: scene.delete
+          - action: scene.delete
             continue_on_error: true
             target:
               entity_id: "{{ active_scene_entity }}"
 
-          - alias: Clear manual-override marker
-            action: scene.delete
+      - alias: Clean up safely after a sensor or light fault
+        conditions:
+          - condition: template
+            value_template: "{{ trigger.id in ['motion_fault', 'light_fault'] }}"
+        sequence:
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - alias: Restore remembered profiles before fault cleanup
+            if:
+              - condition: template
+                value_template: "{{ restore_previous_profile }}"
+            then:
+              - repeat:
+                  for_each: "{{ target_lights }}"
+                  sequence:
+                    - variables:
+                        remembered_scene_entity: >
+                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                             ~ repeat.item.split('.')[1] ~ '_profile' }}
+                    - if:
+                        - condition: template
+                          value_template: >
+                            {{ remembered_scene_entity in
+                               (states.scene | map(attribute='entity_id') | list) }}
+                      then:
+                        - action: scene.turn_on
+                          continue_on_error: true
+                          target:
+                            entity_id: "{{ remembered_scene_entity }}"
+                          data:
+                            transition: 0
+
+          - action: light.turn_off
             continue_on_error: true
             target:
-              entity_id: "{{ override_scene_entity }}"
+              entity_id: "{{ target_lights }}"
+
+          - action: scene.delete
+            continue_on_error: true
+            target:
+              entity_id: "{{ active_scene_entity }}"
 
 mode: parallel
 max: 50
