@@ -2,37 +2,45 @@ blueprint:
   name: IKEA MYGGSPRAY - Smart Motion Lights
   author: 0libote
   description: |
-    Motion-activated lighting designed around the IKEA MYGGSPRAY Matter-over-Thread
-    motion / illuminance sensor.
+    Smart motion lighting for the IKEA MYGGSPRAY Matter-over-Thread
+    occupancy and illuminance sensor.
 
     Created by @0libote
     GitHub: https://github.com/0libote/HA-BPs
 
     Behaviour:
-    - Only starts when motion is detected, the room is below the chosen lux level,
-      and every selected light is currently off and available.
-    - Sends brightness and colour in the same light.turn_on command so Home Assistant
-      does not intentionally turn the light on at one setting and then dim/recolour it.
-    - Waits until occupancy has been clear for the configured time before cleaning up.
-    - Can restore each light's previous brightness / colour profile before switching it
-      off, where the light integration exposes those attributes while the light is off.
-    - Respects manual intervention. A manual/off state releases control immediately,
-      and brightness/colour drift is checked before automatic cleanup so another user or
-      automation can take ownership without this blueprint fighting it.
-    - Includes fault handling for unavailable sensors/lights and a maximum runtime so a
-      stuck motion sensor cannot leave the automation running forever.
-    - Supports extra user-defined activation conditions for things like sleep mode,
-      guests, media playback, house mode, or schedules.
+    - Starts only when motion is detected, illuminance is below the chosen
+      threshold, and every selected light is off and available.
+    - Sends brightness and colour in the same light.turn_on call, avoiding an
+      intentional "turn on, then dim/recolour" sequence.
+    - Turns the lights back off after occupancy has stayed clear for the
+      configured time.
+    - Can remember each light's last normal ON brightness/colour while idle,
+      restore that profile just before automatic switch-off, then turn it off.
+    - Manual OFF immediately releases control. Manual/external brightness or
+      colour changes also make the automation release control at cleanup
+      instead of fighting the new state.
+    - Handles unavailable sensors/lights and includes a maximum runtime for a
+      stuck motion sensor.
+    - Supports extra user-defined activation conditions.
 
-    Important:
-    Home Assistant cannot generically pre-stage a light's brightness/colour while that
-    light is off. This blueprint therefore sends the requested brightness and colour in
-    the same turn_on call, which is the cleanest generic method. Whether a physical bulb
-    briefly flashes its remembered hardware state first is device/integration behaviour.
+    Previous-profile memory:
+    Home Assistant reports brightness and active colour as null while a light
+    is off. To work around that without requiring helpers, this blueprint keeps
+    dynamic profile scenes whenever target lights are normally ON. Tracking is
+    locked while motion lighting is active, so the temporary profile cannot
+    overwrite the remembered one.
 
-    Previous-profile restoration is best effort. Home Assistant does not restore colour
-    or brightness attributes from an "off" scene snapshot, so this blueprint records the
-    attributes itself and reapplies them immediately before switching the light off.
+    Dynamic scenes are temporary. They are cleared by a Home Assistant restart
+    or scene reload and will be relearned the next time each light is used
+    normally. If no profile has been learned yet, cleanup still turns the light
+    off, but cannot pre-load its previous brightness/colour first.
+
+    Flash prevention:
+    Home Assistant cannot generically pre-stage brightness/colour while a light
+    is physically off. This blueprint therefore sends brightness and colour in
+    one turn_on command. A bulb that itself briefly recalls an old hardware
+    state before applying that command cannot be fully prevented by a blueprint.
 
   domain: automation
   source_url: https://github.com/0libote/HA-BPs/blob/main/MYGGSPRAY%20auto%20lights.YAML
@@ -48,10 +56,7 @@ blueprint:
       input:
         motion_sensor:
           name: Motion / Occupancy Sensor
-          description: |
-            Select the MYGGSPRAY occupancy entity. Home Assistant currently exposes the
-            Matter PIR entity as Occupancy on many installations, so both Occupancy and
-            Motion device classes are accepted.
+          description: Select the MYGGSPRAY occupancy entity.
           selector:
             entity:
               filter:
@@ -62,7 +67,7 @@ blueprint:
 
         illuminance_sensor:
           name: Illuminance Sensor
-          description: Select the MYGGSPRAY illuminance / light-level entity.
+          description: Select the MYGGSPRAY illuminance entity.
           selector:
             entity:
               filter:
@@ -71,7 +76,7 @@ blueprint:
 
         lux_threshold:
           name: Turn On Below
-          description: Motion can only start the lighting session below this illuminance.
+          description: Motion only activates the lights below this level.
           default: 30
           selector:
             number:
@@ -88,9 +93,7 @@ blueprint:
       input:
         target_lights:
           name: Lights
-          description: |
-            Lights controlled together. The automation only starts if every selected
-            light is off and available.
+          description: All selected lights must be off before activation.
           selector:
             entity:
               multiple: true
@@ -99,7 +102,6 @@ blueprint:
 
         brightness_pct:
           name: Automation Brightness
-          description: Brightness used while motion lighting is active.
           default: 70
           selector:
             number:
@@ -111,9 +113,7 @@ blueprint:
 
         colour_mode:
           name: Automation Colour
-          description: |
-            Keep the light's previous colour, use the RGB picker, or set a white colour
-            temperature. Brightness is always applied in the same turn_on command.
+          description: Keep the bulb's remembered colour, choose RGB, or choose white temperature.
           default: keep
           selector:
             select:
@@ -128,14 +128,14 @@ blueprint:
 
         rgb_colour:
           name: RGB Colour
-          description: Used only when Automation Colour is set to RGB colour.
+          description: Used only when Automation Colour is RGB colour.
           default: [255, 214, 170]
           selector:
             color_rgb:
 
         colour_temperature:
           name: White Colour Temperature
-          description: Used only when Automation Colour is set to White colour temperature.
+          description: Used only when Automation Colour is White colour temperature.
           default: 2700
           selector:
             color_temp:
@@ -145,9 +145,7 @@ blueprint:
 
         turn_on_transition:
           name: Turn On Transition
-          description: |
-            Transition applied in the same command as the requested brightness/colour.
-            Zero is best for avoiding a visible old-state-to-new-state ramp.
+          description: Zero is usually best for avoiding a visible ramp from an old state.
           default: 0
           selector:
             number:
@@ -164,7 +162,6 @@ blueprint:
       input:
         no_motion_duration:
           name: No Motion Before Off
-          description: How long occupancy must stay clear before automatic cleanup.
           default:
             hours: 0
             minutes: 2
@@ -174,9 +171,7 @@ blueprint:
 
         maximum_runtime:
           name: Maximum Runtime
-          description: |
-            Safety timeout. If motion gets stuck or a normal clear event is never seen,
-            the automation exits after this long and cleans up if it still owns the lights.
+          description: Safety timeout for a stuck sensor or missed clear event.
           default:
             hours: 3
             minutes: 0
@@ -191,11 +186,10 @@ blueprint:
       collapsed: true
       input:
         restore_previous_profile:
-          name: Restore Previous Brightness / Colour
+          name: Remember & Restore Previous Light Profile
           description: |
-            Before automatic switch-off, reapply each light's brightness and active colour
-            profile captured before motion lighting started. This is best effort because
-            not every integration exposes those attributes while a light is off.
+            Remember the latest normal ON profile while idle. Before automatic
+            switch-off, restore it and then turn the light off.
           default: true
           selector:
             boolean:
@@ -203,19 +197,15 @@ blueprint:
         respect_manual_changes:
           name: Respect Manual / External Changes
           description: |
-            Recommended. If a selected light is switched off while this automation owns it,
-            control is released immediately. Before automatic cleanup, the blueprint also
-            checks whether brightness/colour still resembles the profile it set. If not,
-            it assumes a person or another automation took over and leaves the lights alone.
+            Recommended. Manual OFF releases immediately. If brightness/colour
+            no longer matches this automation at cleanup, leave the lights alone.
           default: true
           selector:
             boolean:
 
         extra_activation_conditions:
           name: Extra Activation Conditions
-          description: |
-            Optional extra conditions that must all pass before the lights can turn on.
-            Useful for schedules, house modes, sleep modes, media states, presence, etc.
+          description: Optional conditions such as schedules, sleep mode, media state, or house mode.
           default: []
           selector:
             condition:
@@ -232,352 +222,305 @@ variables:
   automation_turn_on_transition: !input turn_on_transition
   restore_previous_profile: !input restore_previous_profile
   respect_manual_changes: !input respect_manual_changes
-  expected_brightness: >
-    {{ ((automation_brightness_pct | float(0)) * 255 / 100) | round(0) | int }}
+  active_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
+  active_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
+  expected_brightness: "{{ ((automation_brightness_pct | float(0)) * 255 / 100) | round(0) | int }}"
 
-triggers:
-  - trigger: state
+trigger:
+  - platform: state
     entity_id: !input motion_sensor
     from: "off"
     to: "on"
+    id: motion_detected
 
-conditions:
-  - condition: template
-    alias: Motion sensor must still be active
-    value_template: "{{ is_state(motion_sensor, 'on') }}"
+  - platform: state
+    entity_id: !input target_lights
+    id: track_light_profile
 
-  - condition: template
-    alias: Illuminance must be valid and below threshold
-    value_template: >
-      {% set lux = states(illuminance_sensor) %}
-      {{ lux not in ['unknown', 'unavailable', 'none', '']
-         and (lux | float(999999)) < (lux_threshold | float(0)) }}
+condition: []
 
-  - condition: template
-    alias: Every target light must be off and available
-    value_template: >
-      {{ (target_lights | count) > 0
-         and (expand(target_lights)
-              | rejectattr('state', 'eq', 'off')
-              | list
-              | count) == 0 }}
-
-  - condition: and
-    alias: User-defined activation conditions
-    conditions: !input extra_activation_conditions
-
-actions:
-  - alias: Capture each light's pre-automation profile
-    variables:
-      previous_profiles: >-
-        {%- set ns = namespace(items=[]) -%}
-        {%- for entity_id in target_lights -%}
-          {%- set s = states[entity_id] -%}
-          {%- set ns.items = ns.items + [{
-            'entity_id': entity_id,
-            'brightness': s.attributes.get('brightness'),
-            'color_mode': s.attributes.get('color_mode'),
-            'hs_color': s.attributes.get('hs_color'),
-            'xy_color': s.attributes.get('xy_color'),
-            'rgb_color': s.attributes.get('rgb_color'),
-            'rgbw_color': s.attributes.get('rgbw_color'),
-            'rgbww_color': s.attributes.get('rgbww_color'),
-            'color_temp_kelvin': s.attributes.get('color_temp_kelvin')
-          }] -%}
-        {%- endfor -%}
-        {{ ns.items }}
-
-  - alias: Turn lights on with brightness and colour in one command
-    choose:
-      - conditions:
+action:
+  - choose:
+      - alias: Remember normal target-light profiles while idle
+        conditions:
           - condition: template
-            value_template: "{{ automation_colour_mode == 'rgb' }}"
+            value_template: "{{ trigger.id == 'track_light_profile' }}"
         sequence:
-          - action: light.turn_on
+          - condition: template
+            value_template: "{{ restore_previous_profile }}"
+
+          - condition: template
+            value_template: >
+              {{ active_scene_entity not in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - condition: template
+            value_template: >
+              {{ trigger.to_state is not none and trigger.to_state.state == 'on' }}
+
+          - variables:
+              profile_scene_id: >
+                {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                   ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
+
+          - action: scene.create
+            continue_on_error: true
+            data:
+              scene_id: "{{ profile_scene_id }}"
+              snapshot_entities:
+                - "{{ trigger.entity_id }}"
+
+      - alias: Run the motion-light session
+        conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'motion_detected' }}"
+        sequence:
+          - condition: template
+            value_template: >
+              {{ active_scene_entity not in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - condition: template
+            value_template: "{{ is_state(motion_sensor, 'on') }}"
+
+          - condition: template
+            value_template: >
+              {% set lux = states(illuminance_sensor) %}
+              {{ lux not in ['unknown', 'unavailable', 'none', '']
+                 and (lux | float(999999)) < (lux_threshold | float(0)) }}
+
+          - condition: template
+            value_template: >
+              {{ (target_lights | count) > 0
+                 and (expand(target_lights)
+                      | rejectattr('state', 'eq', 'off')
+                      | list | count) == 0 }}
+
+          - condition: and
+            conditions: !input extra_activation_conditions
+
+          - alias: Lock profile tracking for this motion session
+            action: scene.create
+            continue_on_error: true
+            data:
+              scene_id: "{{ active_scene_id }}"
+              snapshot_entities:
+                - "{{ motion_sensor }}"
+
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - alias: Apply brightness and colour in one turn-on call
+            choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ automation_colour_mode == 'rgb' }}"
+                sequence:
+                  - action: light.turn_on
+                    continue_on_error: true
+                    target:
+                      entity_id: "{{ target_lights }}"
+                    data:
+                      brightness_pct: "{{ automation_brightness_pct }}"
+                      rgb_color: "{{ automation_rgb_colour }}"
+                      transition: "{{ automation_turn_on_transition }}"
+
+              - conditions:
+                  - condition: template
+                    value_template: "{{ automation_colour_mode == 'temperature' }}"
+                sequence:
+                  - action: light.turn_on
+                    continue_on_error: true
+                    target:
+                      entity_id: "{{ target_lights }}"
+                    data:
+                      brightness_pct: "{{ automation_brightness_pct }}"
+                      color_temp_kelvin: "{{ automation_colour_temperature }}"
+                      transition: "{{ automation_turn_on_transition }}"
+
+            default:
+              - action: light.turn_on
+                continue_on_error: true
+                target:
+                  entity_id: "{{ target_lights }}"
+                data:
+                  brightness_pct: "{{ automation_brightness_pct }}"
+                  transition: "{{ automation_turn_on_transition }}"
+
+          - wait_template: >
+              {{ (expand(target_lights) | selectattr('state', 'eq', 'on')
+                  | list | count) == (target_lights | count) }}
+            timeout:
+              seconds: 5
+            continue_on_timeout: true
+
+          - alias: Abort safely if a light failed to turn on
+            if:
+              - condition: template
+                value_template: "{{ not wait.completed }}"
+            then:
+              - action: light.turn_off
+                continue_on_error: true
+                target:
+                  entity_id: "{{ target_lights }}"
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
+              - stop: One or more target lights failed to report ON.
+
+          - alias: Wait for clear, manual OFF, fault, or maximum runtime
+            wait_for_trigger:
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "off"
+                for: !input no_motion_duration
+                id: no_motion
+
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "unavailable"
+                for:
+                  seconds: 30
+                id: motion_fault
+
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "unknown"
+                for:
+                  seconds: 30
+                id: motion_fault
+
+              - platform: state
+                entity_id: !input target_lights
+                to: "off"
+                id: target_turned_off
+
+              - platform: state
+                entity_id: !input target_lights
+                to: "unavailable"
+                for:
+                  seconds: 30
+                id: light_fault
+
+            timeout: !input maximum_runtime
+            continue_on_timeout: true
+
+          - variables:
+              end_reason: >-
+                {% if wait.trigger is none %}
+                  maximum_runtime
+                {% else %}
+                  {{ wait.trigger.id }}
+                {% endif %}
+
+          - alias: Manual OFF means the user/another automation owns it now
+            if:
+              - condition: template
+                value_template: >
+                  {{ respect_manual_changes and end_reason == 'target_turned_off' }}
+            then:
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
+              - stop: Motion-light ownership released after target light was switched off.
+
+          - alias: Check whether our temporary light profile is still intact
+            variables:
+              ownership_intact: >-
+                {%- if not respect_manual_changes or end_reason == 'light_fault' -%}
+                  true
+                {%- else -%}
+                  {%- set ns = namespace(ok=true) -%}
+                  {%- for entity_id in target_lights -%}
+                    {%- set s = states[entity_id] -%}
+                    {%- if s.state != 'on' -%}
+                      {%- set ns.ok = false -%}
+                    {%- endif -%}
+                    {%- set b = s.attributes.get('brightness') -%}
+                    {%- if b is not none and
+                          (((b | int) - (expected_brightness | int)) | abs) > 12 -%}
+                      {%- set ns.ok = false -%}
+                    {%- endif -%}
+                    {%- if automation_colour_mode == 'rgb' -%}
+                      {%- set c = s.attributes.get('rgb_color') -%}
+                      {%- if c is not none and (
+                        (((c[0] | int) - (automation_rgb_colour[0] | int)) | abs) > 25
+                        or (((c[1] | int) - (automation_rgb_colour[1] | int)) | abs) > 25
+                        or (((c[2] | int) - (automation_rgb_colour[2] | int)) | abs) > 25
+                      ) -%}
+                        {%- set ns.ok = false -%}
+                      {%- endif -%}
+                    {%- elif automation_colour_mode == 'temperature' -%}
+                      {%- set k = s.attributes.get('color_temp_kelvin') -%}
+                      {%- if k is not none and
+                        (((k | int) - (automation_colour_temperature | int)) | abs) > 200 -%}
+                        {%- set ns.ok = false -%}
+                      {%- endif -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                  {{ ns.ok }}
+                {%- endif -%}
+
+          - alias: Do not fight a manual/external brightness or colour change
+            if:
+              - condition: template
+                value_template: "{{ not ownership_intact }}"
+            then:
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
+              - stop: Motion-light ownership released after target profile changed.
+
+          - alias: Restore remembered profiles before automatic OFF
+            if:
+              - condition: template
+                value_template: "{{ restore_previous_profile }}"
+            then:
+              - repeat:
+                  for_each: "{{ target_lights }}"
+                  sequence:
+                    - variables:
+                        remembered_scene_entity: >
+                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                             ~ repeat.item.split('.')[1] ~ '_profile' }}
+                    - if:
+                        - condition: template
+                          value_template: >
+                            {{ remembered_scene_entity in
+                               (states.scene | map(attribute='entity_id') | list) }}
+                      then:
+                        - action: scene.turn_on
+                          continue_on_error: true
+                          target:
+                            entity_id: "{{ remembered_scene_entity }}"
+                          data:
+                            transition: 0
+
+          - action: light.turn_off
             continue_on_error: true
             target:
               entity_id: "{{ target_lights }}"
-            data:
-              brightness_pct: "{{ automation_brightness_pct }}"
-              rgb_color: "{{ automation_rgb_colour }}"
-              transition: "{{ automation_turn_on_transition }}"
 
-      - conditions:
-          - condition: template
-            value_template: "{{ automation_colour_mode == 'temperature' }}"
-        sequence:
-          - action: light.turn_on
+          - wait_template: >
+              {{ (expand(target_lights)
+                  | rejectattr('state', 'eq', 'off')
+                  | rejectattr('state', 'eq', 'unavailable')
+                  | list | count) == 0 }}
+            timeout:
+              seconds: 5
+            continue_on_timeout: true
+
+          - alias: Unlock idle profile tracking
+            action: scene.delete
             continue_on_error: true
             target:
-              entity_id: "{{ target_lights }}"
-            data:
-              brightness_pct: "{{ automation_brightness_pct }}"
-              color_temp_kelvin: "{{ automation_colour_temperature }}"
-              transition: "{{ automation_turn_on_transition }}"
+              entity_id: "{{ active_scene_entity }}"
 
-    default:
-      - action: light.turn_on
-        continue_on_error: true
-        target:
-          entity_id: "{{ target_lights }}"
-        data:
-          brightness_pct: "{{ automation_brightness_pct }}"
-          transition: "{{ automation_turn_on_transition }}"
-
-  - alias: Give target lights a moment to report their new state
-    wait_template: >
-      {{ (expand(target_lights)
-          | selectattr('state', 'eq', 'on')
-          | list
-          | count) == (target_lights | count) }}
-    timeout:
-      seconds: 5
-    continue_on_timeout: true
-
-  - alias: Abort cleanly if the requested lights did not all turn on
-    if:
-      - condition: template
-        value_template: "{{ not wait.completed }}"
-    then:
-      - action: light.turn_off
-        continue_on_error: true
-        target:
-          entity_id: "{{ target_lights }}"
-      - stop: >
-          MYGGSPRAY motion-light session aborted because one or more target lights did
-          not report on after the turn-on command.
-
-  - alias: Wait for normal clear, a manual off, or a fault
-    wait_for_trigger:
-      - trigger: state
-        entity_id: !input motion_sensor
-        to: "off"
-        for: !input no_motion_duration
-        id: no_motion
-
-      - trigger: state
-        entity_id: !input motion_sensor
-        to: "unavailable"
-        for:
-          seconds: 30
-        id: motion_fault
-
-      - trigger: state
-        entity_id: !input motion_sensor
-        to: "unknown"
-        for:
-          seconds: 30
-        id: motion_fault
-
-      - trigger: state
-        entity_id: !input target_lights
-        to: "off"
-        id: target_turned_off
-
-      - trigger: state
-        entity_id: !input target_lights
-        to: "unavailable"
-        for:
-          seconds: 30
-        id: light_fault
-
-    timeout: !input maximum_runtime
-    continue_on_timeout: true
-
-  - alias: Classify why the session ended
-    variables:
-      end_reason: >-
-        {% if wait.trigger is none %}
-          maximum_runtime
-        {% else %}
-          {{ wait.trigger.id }}
-        {% endif %}
-      manual_override: >
-        {{ respect_manual_changes
-           and wait.trigger is not none
-           and wait.trigger.id == 'target_turned_off' }}
-
-  - alias: Release ownership immediately after a manual off
-    if:
-      - condition: template
-        value_template: "{{ manual_override }}"
-    then:
-      - stop: >
-          MYGGSPRAY motion-light session released because a target light was switched off
-          while manual/external changes are protected.
-
-  - alias: Check whether this automation still owns the light profile
-    variables:
-      ownership_intact: >-
-        {%- if not respect_manual_changes or end_reason == 'light_fault' -%}
-          true
-        {%- else -%}
-          {%- set ns = namespace(ok=true) -%}
-          {%- for entity_id in target_lights -%}
-            {%- set s = states[entity_id] -%}
-            {%- if s.state != 'on' -%}
-              {%- set ns.ok = false -%}
-            {%- endif -%}
-
-            {%- set b = s.attributes.get('brightness') -%}
-            {%- if b is not none
-                  and (((b | int) - (expected_brightness | int)) | abs) > 12 -%}
-              {%- set ns.ok = false -%}
-            {%- endif -%}
-
-            {%- if automation_colour_mode == 'rgb' -%}
-              {%- set actual_rgb = s.attributes.get('rgb_color') -%}
-              {%- if actual_rgb is not none
-                    and (
-                      (((actual_rgb[0] | int) - (automation_rgb_colour[0] | int)) | abs) > 25
-                      or (((actual_rgb[1] | int) - (automation_rgb_colour[1] | int)) | abs) > 25
-                      or (((actual_rgb[2] | int) - (automation_rgb_colour[2] | int)) | abs) > 25
-                    ) -%}
-                {%- set ns.ok = false -%}
-              {%- endif -%}
-            {%- elif automation_colour_mode == 'temperature' -%}
-              {%- set actual_kelvin = s.attributes.get('color_temp_kelvin') -%}
-              {%- if actual_kelvin is not none
-                    and (((actual_kelvin | int) - (automation_colour_temperature | int)) | abs) > 200 -%}
-                {%- set ns.ok = false -%}
-              {%- endif -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ ns.ok }}
-        {%- endif -%}
-
-  - alias: Release ownership if brightness or colour was changed externally
-    if:
-      - condition: template
-        value_template: "{{ not ownership_intact }}"
-    then:
-      - stop: >
-          MYGGSPRAY motion-light session released because the target light profile changed
-          after activation. The blueprint is leaving the current light state untouched.
-
-  - alias: Restore captured profile before switch-off
-    if:
-      - condition: template
-        value_template: "{{ restore_previous_profile }}"
-    then:
-      - repeat:
-          for_each: "{{ previous_profiles }}"
-          sequence:
-            - choose:
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'hs'
-                           and repeat.item.hs_color is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        hs_color: "{{ repeat.item.hs_color }}"
-                        transition: 0
-
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'xy'
-                           and repeat.item.xy_color is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        xy_color: "{{ repeat.item.xy_color }}"
-                        transition: 0
-
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'rgb'
-                           and repeat.item.rgb_color is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        rgb_color: "{{ repeat.item.rgb_color }}"
-                        transition: 0
-
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'rgbw'
-                           and repeat.item.rgbw_color is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        rgbw_color: "{{ repeat.item.rgbw_color }}"
-                        transition: 0
-
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'rgbww'
-                           and repeat.item.rgbww_color is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        rgbww_color: "{{ repeat.item.rgbww_color }}"
-                        transition: 0
-
-                - conditions:
-                    - condition: template
-                      value_template: >
-                        {{ repeat.item.brightness is not none
-                           and repeat.item.color_mode == 'color_temp'
-                           and repeat.item.color_temp_kelvin is not none }}
-                  sequence:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        color_temp_kelvin: "{{ repeat.item.color_temp_kelvin }}"
-                        transition: 0
-
-              default:
-                - if:
-                    - condition: template
-                      value_template: "{{ repeat.item.brightness is not none }}"
-                  then:
-                    - action: light.turn_on
-                      continue_on_error: true
-                      target:
-                        entity_id: "{{ repeat.item.entity_id }}"
-                      data:
-                        brightness: "{{ repeat.item.brightness }}"
-                        transition: 0
-
-  - alias: Switch lights off
-    action: light.turn_off
-    continue_on_error: true
-    target:
-      entity_id: "{{ target_lights }}"
-
-mode: single
+mode: parallel
+max: 50
 max_exceeded: silent
