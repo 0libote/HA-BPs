@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   static:
+    name: Static blueprint checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,3 +24,77 @@ jobs:
           find . -maxdepth 1 -type f \( -iname '*.yaml' -o -iname '*.yml' \) -print0 | xargs -0 --no-run-if-empty yamllint -d '{extends: relaxed, rules: {line-length: disable}}'
       - name: Run structure tests
         run: python -m pytest -q tests
+
+  home-assistant:
+    name: Home Assistant ${{ matrix.ha_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ha_version: ["2025.7.0", "latest"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Home Assistant
+        shell: bash
+        run: |
+          if [ "${{ matrix.ha_version }}" = "latest" ]; then
+            python -m pip install homeassistant
+          else
+            python -m pip install "homeassistant==${{ matrix.ha_version }}"
+          fi
+
+      - name: Build minimal Home Assistant config
+        shell: bash
+        run: |
+          mkdir -p ha-config/blueprints/automation/0libote
+          cp 'BILRESA scroll wheel.YAML' ha-config/blueprints/automation/0libote/bilresa.yaml
+          printf 'default_config:\nautomation: !include automations.yaml\n' > ha-config/configuration.yaml
+          cat > ha-config/automations.yaml <<'YAML'
+          - id: bilresa_new_colour_format
+            alias: BILRESA CI - ordered custom colours
+            use_blueprint:
+              path: 0libote/bilresa.yaml
+              input:
+                preset_1_lights:
+                  - light.ci_test_one
+                button_1: event.ci_bilresa_button_1
+                button_2: event.ci_bilresa_button_2
+                button_3: event.ci_bilresa_button_3
+                preset_1_colour_presets:
+                  - name: Custom blue
+                    colour: [12, 34, 240]
+                  - name: Custom orange
+                    colour: [245, 91, 17]
+                  - name: Custom green
+                    colour: [20, 220, 80]
+                preset_2_mode: duplicate_preset_1
+                button_4: event.ci_bilresa_button_4
+                button_5: event.ci_bilresa_button_5
+                button_6: event.ci_bilresa_button_6
+                preset_3_mode: disabled
+
+          - id: bilresa_legacy_colour_format
+            alias: BILRESA CI - legacy colour values
+            use_blueprint:
+              path: 0libote/bilresa.yaml
+              input:
+                preset_1_lights:
+                  - light.ci_test_legacy
+                button_1: event.ci_legacy_button_1
+                button_2: event.ci_legacy_button_2
+                button_3: event.ci_legacy_button_3
+                preset_1_colour_presets:
+                  - warm_white
+                  - red
+                  - blue
+                preset_2_mode: disabled
+                preset_3_mode: disabled
+          YAML
+
+      - name: Check Home Assistant config
+        run: python -m homeassistant --script check_config --config ha-config
