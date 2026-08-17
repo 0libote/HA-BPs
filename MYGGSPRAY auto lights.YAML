@@ -17,9 +17,8 @@ blueprint:
       configured time.
     - Can remember each light's last normal ON brightness/colour while idle,
       restore that profile just before automatic switch-off, then turn it off.
-    - Manual OFF immediately releases control. Manual/external brightness or
-      colour changes also make the automation release control at cleanup
-      instead of fighting the new state.
+    - Manual OFF immediately releases control. Manual brightness/colour changes
+      made through Home Assistant also release control at cleanup.
     - Handles unavailable sensors/lights and includes a maximum runtime for a
       stuck motion sensor.
     - Supports extra user-defined activation conditions.
@@ -35,6 +34,13 @@ blueprint:
     or scene reload and will be relearned the next time each light is used
     normally. If no profile has been learned yet, cleanup still turns the light
     off, but cannot pre-load its previous brightness/colour first.
+
+    Manual override handling:
+    The blueprint does not compare requested RGB/brightness with the values a
+    bulb reports back. Many integrations round or convert those values, which
+    can otherwise falsely cancel automatic switch-off. Instead, explicit user
+    changes made through Home Assistant are detected from the state context.
+    Manual OFF is always detected directly.
 
     Flash prevention:
     Home Assistant cannot generically pre-stage brightness/colour while a light
@@ -195,10 +201,11 @@ blueprint:
             boolean:
 
         respect_manual_changes:
-          name: Respect Manual / External Changes
+          name: Respect Manual Changes
           description: |
-            Recommended. Manual OFF releases immediately. If brightness/colour
-            no longer matches this automation at cleanup, leave the lights alone.
+            Recommended. Manual OFF releases immediately. Explicit brightness
+            or colour changes made through Home Assistant release control at
+            cleanup without relying on exact bulb-reported colour values.
           default: true
           selector:
             boolean:
@@ -224,7 +231,8 @@ variables:
   respect_manual_changes: !input respect_manual_changes
   active_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
   active_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
-  expected_brightness: "{{ ((automation_brightness_pct | float(0)) * 255 / 100) | round(0) | int }}"
+  override_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_override' }}"
+  override_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_override' }}"
 
 trigger:
   - platform: state
@@ -241,6 +249,32 @@ condition: []
 
 action:
   - choose:
+      - alias: Mark an explicit Home Assistant user takeover
+        conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'track_light_profile' }}"
+
+          - condition: template
+            value_template: "{{ respect_manual_changes }}"
+
+          - condition: template
+            value_template: >
+              {{ active_scene_entity in
+                 (states.scene | map(attribute='entity_id') | list) }}
+
+          - condition: template
+            value_template: >
+              {{ trigger.to_state is not none
+                 and trigger.to_state.state == 'on'
+                 and trigger.to_state.context.user_id is not none }}
+        sequence:
+          - action: scene.create
+            continue_on_error: true
+            data:
+              scene_id: "{{ override_scene_id }}"
+              snapshot_entities:
+                - "{{ motion_sensor }}"
+
       - alias: Remember normal target-light profiles while idle
         conditions:
           - condition: template
@@ -298,6 +332,12 @@ action:
 
           - condition: and
             conditions: !input extra_activation_conditions
+
+          - alias: Clear any stale manual-override marker
+            action: scene.delete
+            continue_on_error: true
+            target:
+              entity_id: "{{ override_scene_entity }}"
 
           - alias: Lock profile tracking for this motion session
             action: scene.create
@@ -369,6 +409,10 @@ action:
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ override_scene_entity }}"
               - stop: One or more target lights failed to report ON.
 
           - alias: Wait for clear, manual OFF, fault, or maximum runtime
@@ -426,55 +470,29 @@ action:
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ override_scene_entity }}"
               - stop: Motion-light ownership released after target light was switched off.
 
-          - alias: Check whether our temporary light profile is still intact
-            variables:
-              ownership_intact: >-
-                {%- if not respect_manual_changes or end_reason == 'light_fault' -%}
-                  true
-                {%- else -%}
-                  {%- set ns = namespace(ok=true) -%}
-                  {%- for entity_id in target_lights -%}
-                    {%- set s = states[entity_id] -%}
-                    {%- if s.state != 'on' -%}
-                      {%- set ns.ok = false -%}
-                    {%- endif -%}
-                    {%- set b = s.attributes.get('brightness') -%}
-                    {%- if b is not none and
-                          (((b | int) - (expected_brightness | int)) | abs) > 12 -%}
-                      {%- set ns.ok = false -%}
-                    {%- endif -%}
-                    {%- if automation_colour_mode == 'rgb' -%}
-                      {%- set c = s.attributes.get('rgb_color') -%}
-                      {%- if c is not none and (
-                        (((c[0] | int) - (automation_rgb_colour[0] | int)) | abs) > 25
-                        or (((c[1] | int) - (automation_rgb_colour[1] | int)) | abs) > 25
-                        or (((c[2] | int) - (automation_rgb_colour[2] | int)) | abs) > 25
-                      ) -%}
-                        {%- set ns.ok = false -%}
-                      {%- endif -%}
-                    {%- elif automation_colour_mode == 'temperature' -%}
-                      {%- set k = s.attributes.get('color_temp_kelvin') -%}
-                      {%- if k is not none and
-                        (((k | int) - (automation_colour_temperature | int)) | abs) > 200 -%}
-                        {%- set ns.ok = false -%}
-                      {%- endif -%}
-                    {%- endif -%}
-                  {%- endfor -%}
-                  {{ ns.ok }}
-                {%- endif -%}
-
-          - alias: Do not fight a manual/external brightness or colour change
+          - alias: Explicit Home Assistant user change means the user owns it now
             if:
               - condition: template
-                value_template: "{{ not ownership_intact }}"
+                value_template: >
+                  {{ respect_manual_changes
+                     and override_scene_entity in
+                     (states.scene | map(attribute='entity_id') | list) }}
             then:
               - action: scene.delete
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
-              - stop: Motion-light ownership released after target profile changed.
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ override_scene_entity }}"
+              - stop: Motion-light ownership released after an explicit Home Assistant user change.
 
           - alias: Restore remembered profiles before automatic OFF
             if:
@@ -520,6 +538,12 @@ action:
             continue_on_error: true
             target:
               entity_id: "{{ active_scene_entity }}"
+
+          - alias: Clear manual-override marker
+            action: scene.delete
+            continue_on_error: true
+            target:
+              entity_id: "{{ override_scene_entity }}"
 
 mode: parallel
 max: 50
