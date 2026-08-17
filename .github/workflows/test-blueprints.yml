@@ -31,22 +31,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ha_version: ["2025.7.0", "latest"]
+        ha_version: ["2025.7.0", "stable"]
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install Home Assistant
-        shell: bash
-        run: |
-          if [ "${{ matrix.ha_version }}" = "latest" ]; then
-            python -m pip install homeassistant
-          else
-            python -m pip install "homeassistant==${{ matrix.ha_version }}"
-          fi
 
       - name: Build minimal Home Assistant config
         shell: bash
@@ -97,4 +85,9 @@ jobs:
           YAML
 
       - name: Check Home Assistant config
-        run: python -m homeassistant --script check_config --config ha-config
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/ha-config:/config" \
+            "ghcr.io/home-assistant/home-assistant:${{ matrix.ha_version }}" \
+            python -m homeassistant --script check_config --config /config
