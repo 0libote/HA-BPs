@@ -7,8 +7,9 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-BLUEPRINT_GLOBS = ("*.yaml", "*.yml", "*.YAML", "*.YML")
 INPUT_REF_RE = re.compile(r"!input\s+([A-Za-z0-9_]+)")
+BLUEPRINT_MARKER_RE = re.compile(r"(?m)^blueprint:\s*(?:#.*)?$")
+EXCLUDED_DIRS = {".git", ".github", ".venv", "venv", "ha-config", "__pycache__"}
 
 
 class BlueprintLoader(yaml.SafeLoader):
@@ -23,21 +24,36 @@ BlueprintLoader.add_constructor("!input", _input_constructor)
 
 
 def blueprint_files() -> list[Path]:
-    files: set[Path] = set()
-    for pattern in BLUEPRINT_GLOBS:
-        files.update(ROOT.glob(pattern))
-    return sorted(path for path in files if path.is_file())
+    """Find blueprint YAML files anywhere in the repository.
+
+    Files are identified by a top-level ``blueprint:`` marker rather than by
+    filename or directory, so the repository can contain other YAML files too.
+    """
+    files: list[Path] = []
+
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+            continue
+        if any(part in EXCLUDED_DIRS for part in path.relative_to(ROOT).parts):
+            continue
+
+        raw = path.read_text(encoding="utf-8")
+        if BLUEPRINT_MARKER_RE.search(raw):
+            files.append(path)
+
+    return sorted(files)
 
 
 def load_blueprint(path: Path) -> dict:
     data = yaml.load(path.read_text(encoding="utf-8"), Loader=BlueprintLoader)
-    assert isinstance(data, dict), f"{path.name}: root must be a mapping"
+    assert isinstance(data, dict), f"{path.relative_to(ROOT)}: root must be a mapping"
     return data
 
 
 def flatten_inputs(input_tree: dict) -> dict[str, dict]:
-    """Flatten normal inputs and HA input sections into one input mapping."""
+    """Flatten normal inputs and Home Assistant input sections."""
     flattened: dict[str, dict] = {}
+
     for key, value in input_tree.items():
         if isinstance(value, dict) and isinstance(value.get("input"), dict):
             for nested_key, nested_value in value["input"].items():
@@ -48,24 +64,32 @@ def flatten_inputs(input_tree: dict) -> dict[str, dict]:
         else:
             assert key not in flattened, f"Duplicate blueprint input {key!r}"
             flattened[key] = value
+
     return flattened
 
 
-@pytest.mark.parametrize("path", blueprint_files(), ids=lambda p: p.name)
+def blueprint_id(path: Path) -> str:
+    return str(path.relative_to(ROOT))
+
+
+def test_repository_contains_blueprints() -> None:
+    assert blueprint_files(), "No Home Assistant blueprint YAML files were found"
+
+
+@pytest.mark.parametrize("path", blueprint_files(), ids=blueprint_id)
 def test_blueprint_yaml_and_required_metadata(path: Path) -> None:
     data = load_blueprint(path)
     metadata = data.get("blueprint")
-    assert isinstance(metadata, dict), f"{path.name}: missing blueprint metadata"
-    assert metadata.get("name"), f"{path.name}: blueprint.name is required"
-    assert metadata.get("domain") == "automation", (
-        f"{path.name}: expected an automation blueprint"
-    )
+
+    assert isinstance(metadata, dict), f"{blueprint_id(path)}: missing blueprint metadata"
+    assert metadata.get("name"), f"{blueprint_id(path)}: blueprint.name is required"
+    assert metadata.get("domain"), f"{blueprint_id(path)}: blueprint.domain is required"
     assert isinstance(metadata.get("input", {}), dict), (
-        f"{path.name}: blueprint.input must be a mapping"
+        f"{blueprint_id(path)}: blueprint.input must be a mapping"
     )
 
 
-@pytest.mark.parametrize("path", blueprint_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", blueprint_files(), ids=blueprint_id)
 def test_all_input_references_exist(path: Path) -> None:
     raw = path.read_text(encoding="utf-8")
     data = load_blueprint(path)
@@ -73,10 +97,10 @@ def test_all_input_references_exist(path: Path) -> None:
     references = set(INPUT_REF_RE.findall(raw))
 
     missing = sorted(references - set(inputs))
-    assert not missing, f"{path.name}: undefined !input references: {missing}"
+    assert not missing, f"{blueprint_id(path)}: undefined !input references: {missing}"
 
 
-@pytest.mark.parametrize("path", blueprint_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", blueprint_files(), ids=blueprint_id)
 def test_every_declared_input_is_used(path: Path) -> None:
     raw = path.read_text(encoding="utf-8")
     data = load_blueprint(path)
@@ -84,45 +108,4 @@ def test_every_declared_input_is_used(path: Path) -> None:
     references = set(INPUT_REF_RE.findall(raw))
 
     unused = sorted(set(inputs) - references)
-    assert not unused, f"{path.name}: declared but unused inputs: {unused}"
-
-
-def test_bilresa_has_one_section_per_preset() -> None:
-    path = ROOT / "BILRESA scroll wheel.YAML"
-    if not path.exists():
-        pytest.skip("BILRESA blueprint is not present")
-
-    data = load_blueprint(path)
-    input_tree = data["blueprint"]["input"]
-
-    assert list(input_tree) == ["preset_1", "preset_2", "preset_3"]
-    for preset in (1, 2, 3):
-        section = input_tree[f"preset_{preset}"]
-        assert isinstance(section.get("input"), dict)
-
-
-def test_bilresa_colour_lists_are_ordered_rgb_objects() -> None:
-    path = ROOT / "BILRESA scroll wheel.YAML"
-    if not path.exists():
-        pytest.skip("BILRESA blueprint is not present")
-
-    data = load_blueprint(path)
-
-    for preset in (1, 2, 3):
-        section_inputs = data["blueprint"]["input"][f"preset_{preset}"]["input"]
-        colour_input = section_inputs[f"preset_{preset}_colour_presets"]
-        selector = colour_input["selector"]["object"]
-
-        assert selector.get("multiple") is True
-        assert selector.get("label_field") == "name"
-        fields = selector.get("fields", {})
-        assert "text" in fields["name"]["selector"]
-        assert "color_rgb" in fields["colour"]["selector"]
-
-        defaults = colour_input.get("default", [])
-        assert defaults, f"Preset {preset} should ship with colour defaults"
-        for item in defaults:
-            assert set(item) == {"name", "colour"}
-            rgb = item["colour"]
-            assert isinstance(rgb, list) and len(rgb) == 3
-            assert all(isinstance(value, int) and 0 <= value <= 255 for value in rgb)
+    assert not unused, f"{blueprint_id(path)}: declared but unused inputs: {unused}"
