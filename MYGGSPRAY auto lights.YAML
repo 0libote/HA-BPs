@@ -192,6 +192,17 @@ blueprint:
           selector:
             boolean:
 
+        respect_manual_changes:
+          name: Respect Manual Changes
+          description: |
+            Retained for compatibility with existing automations. Manual OFF is
+            always treated as a release of motion-light control in this version.
+            Richer brightness/colour takeover detection will be reintroduced only
+            after the core motion lifecycle is proven reliable.
+          default: true
+          selector:
+            boolean:
+
         extra_activation_conditions:
           name: Extra Activation Conditions
           description: Optional conditions such as schedules, sleep mode, media state, or house mode.
@@ -210,6 +221,7 @@ variables:
   automation_colour_temperature: !input colour_temperature
   automation_turn_on_transition: !input turn_on_transition
   restore_previous_profile: !input restore_previous_profile
+  respect_manual_changes: !input respect_manual_changes
   active_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
   active_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
 
