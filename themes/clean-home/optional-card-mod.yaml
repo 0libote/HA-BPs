@@ -1,0 +1,13 @@
+# OPTIONAL: Card Mod 4.x rounding fallback
+#
+# The main Clean Home theme does NOT require Card Mod.
+# Only use this if a custom/older card refuses to respect Home Assistant's
+# native --ha-card-border-radius variable.
+#
+# Add these keys under the existing `Clean Home:` entry in clean-home.yaml.
+
+card-mod-theme: Clean Home
+card-mod-card: |
+  ha-card {
+    border-radius: var(--ha-card-border-radius) !important;
+  }
