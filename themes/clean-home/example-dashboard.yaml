@@ -1,0 +1,120 @@
+title: Clean Home Demo
+views:
+  - title: Home
+    path: home
+    icon: mdi:home
+    type: sections
+    max_columns: 3
+    theme: Clean Home
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Home
+            heading_style: title
+          - type: tile
+            entity: sensor.living_room_temperature
+            name: Indoor temperature
+            icon: mdi:thermometer
+            vertical: true
+          - type: tile
+            entity: sensor.home_humidity
+            name: Humidity
+            icon: mdi:water-percent
+            vertical: true
+          - type: tile
+            entity: sensor.air_quality
+            name: Air quality
+            icon: mdi:leaf
+            vertical: true
+          - type: tile
+            entity: sensor.outdoor_temperature
+            name: Outside
+            icon: mdi:weather-partly-cloudy
+            vertical: true
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lights
+            icon: mdi:lightbulb-group
+          - type: tile
+            entity: light.living_room
+            name: Living room
+            tap_action:
+              action: toggle
+            features:
+              - type: light-brightness
+            features_position: bottom
+          - type: tile
+            entity: light.kitchen
+            name: Kitchen
+            tap_action:
+              action: toggle
+            features:
+              - type: light-brightness
+            features_position: bottom
+          - type: tile
+            entity: light.bedroom
+            name: Bedroom
+            tap_action:
+              action: toggle
+            features:
+              - type: light-brightness
+            features_position: bottom
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Heating
+            icon: mdi:radiator
+          - type: thermostat
+            entity: climate.living_room
+            name: Living room
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Security
+            icon: mdi:shield-home
+          - type: tile
+            entity: lock.front_door
+            name: Front door
+            features:
+              - type: lock-commands
+            features_position: bottom
+          - type: tile
+            entity: binary_sensor.home_motion
+            name: Motion
+            icon: mdi:motion-sensor
+          - type: tile
+            entity: alarm_control_panel.home
+            name: Alarm
+            features:
+              - type: alarm-modes
+                modes:
+                  - armed_home
+                  - armed_away
+                  - disarmed
+            features_position: bottom
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Front door
+            icon: mdi:cctv
+          - type: picture-entity
+            entity: camera.front_door
+            camera_view: live
+            show_name: false
+            show_state: false
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Today
+            icon: mdi:calendar-check
+          - type: calendar
+            entities:
+              - calendar.home
+            initial_view: listWeek

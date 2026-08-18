@@ -1,0 +1,88 @@
+Clean Home:
+  primary-color: "#2F80ED"
+  accent-color: "#2F80ED"
+  success-color: "#2EAD63"
+  warning-color: "#E59B2A"
+  error-color: "#D94F4F"
+
+  # Rounded, touch-friendly surfaces
+  ha-card-border-radius: "22px"
+  ha-card-features-border-radius: "16px"
+  ha-badge-border-radius: "18px"
+  ha-dialog-border-radius: "24px"
+  ha-button-border-radius: "14px"
+  ha-card-border-width: "1px"
+
+  # Larger, clearer dashboard text
+  ha-card-header-font-size: "22px"
+  ha-tile-info-primary-font-size: "18px"
+  ha-tile-info-primary-font-weight: "600"
+  ha-tile-info-secondary-font-size: "15px"
+  ha-tile-info-secondary-font-weight: "500"
+  ha-heading-card-title-font-size: "26px"
+  ha-heading-card-title-font-weight: "700"
+  ha-heading-card-subtitle-font-size: "18px"
+  ha-heading-card-subtitle-font-weight: "600"
+
+  # State colours stay semantic and easy to recognise
+  state-light-active-color: "#F6B73C"
+  state-switch-active-color: "#2F80ED"
+  state-lock-locked-color: "#2EAD63"
+  state-lock-unlocked-color: "#D94F4F"
+  state-climate-heat-color: "#E06D3A"
+  state-alarm_control_panel-armed_home-color: "#2EAD63"
+  state-alarm_control_panel-armed_away-color: "#2EAD63"
+  state-alarm_control_panel-disarmed-color: "#7C8996"
+
+  modes:
+    light:
+      primary-background-color: "#F4F7FA"
+      secondary-background-color: "#EDF2F7"
+      card-background-color: "#FFFFFF"
+      ha-card-background: "#FFFFFF"
+
+      primary-text-color: "#1C2733"
+      secondary-text-color: "#536171"
+      disabled-text-color: "#8995A3"
+
+      divider-color: "#DDE5EC"
+      outline-color: "#CAD5DF"
+      ha-card-border-color: "#DDE5EC"
+      ha-card-box-shadow: "0 5px 18px rgba(31, 45, 61, 0.08)"
+
+      sidebar-background-color: "#FFFFFF"
+      sidebar-text-color: "#273442"
+      sidebar-icon-color: "#607080"
+      sidebar-selected-background-color: "#E8F2FF"
+      sidebar-selected-text-color: "#0E67C7"
+      sidebar-selected-icon-color: "#0E67C7"
+
+      app-header-background-color: "#FFFFFF"
+      app-header-text-color: "#1C2733"
+      app-header-border-bottom: "1px solid #DDE5EC"
+
+    dark:
+      primary-background-color: "#0D1924"
+      secondary-background-color: "#112231"
+      card-background-color: "#162737"
+      ha-card-background: "#162737"
+
+      primary-text-color: "#F5F8FA"
+      secondary-text-color: "#B7C3CE"
+      disabled-text-color: "#72808E"
+
+      divider-color: "#2A3D4F"
+      outline-color: "#3A4D5F"
+      ha-card-border-color: "#2A3D4F"
+      ha-card-box-shadow: "0 7px 22px rgba(0, 0, 0, 0.24)"
+
+      sidebar-background-color: "#0A1620"
+      sidebar-text-color: "#EAF0F5"
+      sidebar-icon-color: "#A8B6C3"
+      sidebar-selected-background-color: "#173B5E"
+      sidebar-selected-text-color: "#8BC4FF"
+      sidebar-selected-icon-color: "#58A8F5"
+
+      app-header-background-color: "#0D1924"
+      app-header-text-color: "#F5F8FA"
+      app-header-border-bottom: "1px solid #2A3D4F"
