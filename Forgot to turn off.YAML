@@ -10,15 +10,19 @@ blueprint:
     Behaviour:
     - Never turns lights on and never changes brightness, colour, scenes, or
       other automation state.
-    - Turns the selected lights off only after the selected presence sensor has
-      stayed continuously clear for the configured time.
+    - Supports one or multiple motion, occupancy, or presence sensors.
+    - Starts the safety countdown only when every selected presence sensor is
+      clear, and turns the selected lights off only if every sensor stays clear
+      for the entire configured time.
     - If a selected light is turned on while the area is already clear, starts
-      a fresh safety countdown and only acts if the sensor remains clear for
+      a fresh safety countdown and only acts if all sensors remain clear for
       that entire countdown.
     - If Home Assistant restarts while the area is clear, starts a fresh safety
       countdown rather than immediately switching anything off.
-    - Motion or occupancy returning during a safety countdown prevents that
-      countdown from switching the lights off.
+    - Motion or occupancy returning on any selected sensor during a safety
+      countdown prevents that countdown from switching the lights off.
+    - Unknown or unavailable sensors are treated as not clear, so a sensor fault
+      cannot cause an automatic switch-off.
 
     This blueprint is intentionally passive. It does not try to own the lights
     or replace your existing lighting automations. It is just a final
@@ -37,10 +41,13 @@ blueprint:
       collapsed: false
       input:
         presence_sensor:
-          name: Motion / Occupancy Sensor
-          description: Select the sensor used to decide whether the area is empty.
+          name: Motion / Occupancy Sensors
+          description: |
+            Select one or more sensors covering the area. Every selected sensor
+            must stay clear for the full timeout before the lights are switched off.
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: binary_sensor
                   device_class: occupancy
@@ -70,7 +77,7 @@ blueprint:
       input:
         no_presence_duration:
           name: No Presence Before Off
-          description: How long the area must stay continuously clear before the lights are switched off.
+          description: How long every selected sensor must stay continuously clear before the lights are switched off.
           default:
             hours: 1
             minutes: 0
@@ -80,15 +87,14 @@ blueprint:
               enable_day: true
 
 variables:
-  presence_sensor: !input presence_sensor
+  presence_sensors: !input presence_sensor
   target_lights: !input target_lights
 
 trigger:
   - platform: state
     entity_id: !input presence_sensor
     to: "off"
-    for: !input no_presence_duration
-    id: no_presence_elapsed
+    id: presence_cleared
 
   - platform: state
     entity_id: !input target_lights
@@ -102,58 +108,62 @@ trigger:
 condition: []
 
 action:
-  - choose:
-      - alias: Continuous no-presence period has elapsed
-        conditions:
-          - condition: template
-            value_template: "{{ trigger.id == 'no_presence_elapsed' }}"
-        sequence:
-          - condition: template
-            value_template: "{{ is_state(presence_sensor, 'off') }}"
+  - condition: template
+    value_template: >
+      {{ trigger.id in
+         ['presence_cleared', 'light_turned_on', 'home_assistant_started'] }}
 
-          - condition: template
-            value_template: >
-              {{ (expand(target_lights)
-                   | selectattr('state', 'eq', 'on')
-                   | list
-                   | count) > 0 }}
+  - alias: Only start when every selected presence sensor is clear
+    condition: template
+    value_template: >
+      {{ (expand(presence_sensors) | list | count) > 0
+         and (expand(presence_sensors)
+              | rejectattr('state', 'eq', 'off')
+              | list
+              | count) == 0 }}
 
-          - action: light.turn_off
-            target:
-              entity_id: !input target_lights
+  - alias: Remember exactly when each sensor became clear
+    variables:
+      clear_state_signature: >
+        {% set ns = namespace(parts=[]) %}
+        {% for sensor in expand(presence_sensors) | sort(attribute='entity_id') %}
+          {% set ns.parts = ns.parts +
+             [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
+        {% endfor %}
+        {{ ns.parts | join('|') }}
 
-      - alias: Start a passive safety countdown
-        conditions:
-          - condition: template
-            value_template: >
-              {{ trigger.id in ['light_turned_on', 'home_assistant_started'] }}
-        sequence:
-          - condition: template
-            value_template: "{{ is_state(presence_sensor, 'off') }}"
+  - delay: !input no_presence_duration
 
-          - variables:
-              clear_state_started: "{{ states[presence_sensor].last_changed }}"
+  - alias: Every sensor must still be clear
+    condition: template
+    value_template: >
+      {{ (expand(presence_sensors) | list | count) > 0
+         and (expand(presence_sensors)
+              | rejectattr('state', 'eq', 'off')
+              | list
+              | count) == 0 }}
 
-          - delay: !input no_presence_duration
+  - alias: No selected sensor may have detected presence during the countdown
+    condition: template
+    value_template: >
+      {% set ns = namespace(parts=[]) %}
+      {% for sensor in expand(presence_sensors) | sort(attribute='entity_id') %}
+        {% set ns.parts = ns.parts +
+           [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
+      {% endfor %}
+      {{ ns.parts | join('|') == clear_state_signature }}
 
-          - condition: template
-            value_template: "{{ is_state(presence_sensor, 'off') }}"
+  - alias: Only act if at least one selected light is still on
+    condition: template
+    value_template: >
+      {{ (expand(target_lights)
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count) > 0 }}
 
-          - alias: Make sure presence did not return during this countdown
-            condition: template
-            value_template: >
-              {{ states[presence_sensor].last_changed == clear_state_started }}
-
-          - condition: template
-            value_template: >
-              {{ (expand(target_lights)
-                   | selectattr('state', 'eq', 'on')
-                   | list
-                   | count) > 0 }}
-
-          - action: light.turn_off
-            target:
-              entity_id: !input target_lights
+  - action: light.turn_off
+    target:
+      entity_id: !input target_lights
 
 mode: parallel
 max: 20
