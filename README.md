@@ -6,6 +6,7 @@ Home Assistant blueprints and UI bits.
 
 - `BILRESA scroll wheel.YAML`
 - `MYGGSPRAY auto lights.YAML`
+- `Forgot to turn off.YAML`
 
 ## Themes
 
