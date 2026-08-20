@@ -41,7 +41,7 @@ blueprint:
     state before applying that command cannot be fully prevented by a blueprint.
 
   domain: automation
-  source_url: https://github.com/0libote/HA-BPs/blob/main/MYGGSPRAY%20auto%20lights.YAML
+  source_url: https://github.com/0libote/HA-BPs/blob/main/blueprints/myggspray-auto-lights.yaml
 
   homeassistant:
     min_version: 2025.7.0

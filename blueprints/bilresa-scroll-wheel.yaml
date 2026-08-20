@@ -26,7 +26,7 @@ blueprint:
     completed event, a blueprint cannot recover that missing movement.
 
   domain: automation
-  source_url: https://github.com/0libote/HA-BPs/blob/main/BILRESA%20scroll%20wheel.YAML
+  source_url: https://github.com/0libote/HA-BPs/blob/main/blueprints/bilresa-scroll-wheel.yaml
 
   homeassistant:
     min_version: 2025.7.0

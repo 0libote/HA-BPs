@@ -29,7 +29,7 @@ blueprint:
     "forgot to turn it off" safety net.
 
   domain: automation
-  source_url: https://github.com/0libote/HA-BPs/blob/main/Forgot%20to%20turn%20off.YAML
+  source_url: https://github.com/0libote/HA-BPs/blob/main/blueprints/forgot-to-turn-off.yaml
 
   homeassistant:
     min_version: 2025.7.0
