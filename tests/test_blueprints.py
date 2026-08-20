@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INPUT_REF_RE = re.compile(r"!input\s+([A-Za-z0-9_]+)")
 BLUEPRINT_MARKER_RE = re.compile(r"(?m)^blueprint:\s*(?:#.*)?$")
 EXCLUDED_DIRS = {".git", ".github", ".venv", "venv", "ha-config", "__pycache__"}
+SOURCE_URL_BASE = "https://github.com/0libote/HA-BPs/blob/main/"
 
 
 class BlueprintLoader(yaml.SafeLoader):
@@ -86,6 +87,16 @@ def test_blueprint_yaml_and_required_metadata(path: Path) -> None:
     assert metadata.get("domain"), f"{blueprint_id(path)}: blueprint.domain is required"
     assert isinstance(metadata.get("input", {}), dict), (
         f"{blueprint_id(path)}: blueprint.input must be a mapping"
+    )
+
+
+@pytest.mark.parametrize("path", blueprint_files(), ids=blueprint_id)
+def test_source_url_matches_repository_path(path: Path) -> None:
+    data = load_blueprint(path)
+    expected = SOURCE_URL_BASE + path.relative_to(ROOT).as_posix()
+
+    assert data["blueprint"].get("source_url") == expected, (
+        f"{blueprint_id(path)}: source_url must be {expected}"
     )
 
 

@@ -5,11 +5,15 @@ from pathlib import Path
 
 from homeassistant.components.blueprint.models import Blueprint
 from homeassistant.components.blueprint.schemas import BLUEPRINT_SCHEMA
+from homeassistant.components.frontend import THEME_SCHEMA
+from homeassistant.components.lovelace import CONFIG_SCHEMA as LOVELACE_CONFIG_SCHEMA
 from homeassistant.util import yaml as yaml_util
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT_MARKER_RE = re.compile(r"(?m)^blueprint:\s*(?:#.*)?$")
 EXCLUDED_DIRS = {".git", ".github", ".venv", "venv", "ha-config", "__pycache__"}
+THEME_PATH = ROOT / "themes" / "clean-home" / "clean-home.yaml"
+DASHBOARD_PATH = ROOT / "themes" / "clean-home" / "example-dashboard.yaml"
 
 
 def blueprint_files() -> list[Path]:
@@ -50,6 +54,33 @@ def main() -> None:
             continue
 
         print(f"OK: {relative} ({blueprint.domain})")
+
+    try:
+        themes = yaml_util.load_yaml_dict(THEME_PATH)
+        for theme_name, theme in themes.items():
+            THEME_SCHEMA(theme)
+            print(f"OK: {THEME_PATH.relative_to(ROOT)} ({theme_name})")
+    except Exception as err:
+        failures.append(f"{THEME_PATH.relative_to(ROOT)}: {err}")
+
+    try:
+        yaml_util.load_yaml_dict(DASHBOARD_PATH)
+        LOVELACE_CONFIG_SCHEMA(
+            {
+                "lovelace": {
+                    "dashboards": {
+                        "clean-home": {
+                            "mode": "yaml",
+                            "filename": DASHBOARD_PATH.name,
+                            "title": "Clean Home",
+                        }
+                    }
+                }
+            }
+        )
+        print(f"OK: {DASHBOARD_PATH.relative_to(ROOT)} (YAML dashboard)")
+    except Exception as err:
+        failures.append(f"{DASHBOARD_PATH.relative_to(ROOT)}: {err}")
 
     if failures:
         print("\nHome Assistant blueprint validation failed:")

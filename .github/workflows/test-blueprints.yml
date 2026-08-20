@@ -30,8 +30,8 @@ jobs:
             | xargs -0 --no-run-if-empty yamllint \
               -d '{extends: relaxed, rules: {line-length: disable, new-line-at-end-of-file: disable}}'
 
-      - name: Run generic blueprint tests
-        run: python -m pytest -q tests/test_blueprints.py
+      - name: Run repository tests
+        run: python -m pytest -q
 
   home-assistant:
     name: Home Assistant schema validation
