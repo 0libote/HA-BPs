@@ -128,3 +128,14 @@ def test_myggspray_supports_separate_sensor_groups() -> None:
 
     assert inputs["motion_sensor"]["selector"]["entity"]["multiple"] is True
     assert inputs["illuminance_sensor"]["selector"]["entity"]["multiple"] is True
+
+
+def test_doorbell_supports_multiple_triggers_and_speakers() -> None:
+    data = load_blueprint(ROOT / "blueprints/doorbell-announcement.yaml")
+    inputs = flatten_inputs(data["blueprint"]["input"])
+
+    assert inputs["doorbell_sensors"]["selector"]["entity"]["multiple"] is True
+    assert inputs["media_players"]["selector"]["entity"]["multiple"] is True
+    assert inputs["tts_entity"]["selector"]["entity"]["filter"] == [
+        {"domain": "tts"}
+    ]

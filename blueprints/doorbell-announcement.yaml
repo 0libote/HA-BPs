@@ -1,0 +1,185 @@
+blueprint:
+  name: Doorbell - Multi-Speaker TTS Announcement
+  author: 0libote
+  description: |
+    Announces a doorbell press on one or more media players.
+
+    Created by @0libote
+    GitHub: https://github.com/0libote/HA-BPs
+
+    Behaviour:
+    - Starts when any selected doorbell binary sensor turns on.
+    - Sets every selected speaker to the announcement volume.
+    - Speaks the configured message on each speaker through the selected TTS
+      entity.
+    - After the configured delay, sets the speakers to the chosen normal volume
+      and can stop any remaining announcement playback.
+    - Supports optional conditions and extra actions.
+    - Ignores another press while the current announcement run is active.
+
+  domain: automation
+  source_url: https://github.com/0libote/HA-BPs/blob/main/blueprints/doorbell-announcement.yaml
+
+  homeassistant:
+    min_version: 2025.7.0
+
+  input:
+    doorbell:
+      name: Doorbell
+      icon: mdi:doorbell
+      collapsed: false
+      input:
+        doorbell_sensors:
+          name: Doorbell Sensors
+          description: Select one or more binary sensors that turn on when the doorbell is pressed.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: binary_sensor
+
+        extra_conditions:
+          name: Extra Conditions
+          description: Optional conditions such as quiet hours, presence, or house mode.
+          default: []
+          selector:
+            condition:
+
+    announcement:
+      name: Announcement
+      icon: mdi:account-voice
+      collapsed: false
+      input:
+        tts_entity:
+          name: Text-to-Speech Entity
+          description: Select the TTS entity that should generate the announcement.
+          selector:
+            entity:
+              filter:
+                - domain: tts
+
+        media_players:
+          name: Speakers
+          description: Select one or more media players for the announcement.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
+
+        message:
+          name: Message
+          default: Someone is at the door.
+          selector:
+            text:
+              multiline: true
+
+        announcement_volume:
+          name: Announcement Volume
+          default: 0.6
+          selector:
+            number:
+              min: 0
+              max: 1
+              step: 0.05
+              mode: slider
+
+    cleanup:
+      name: After the Announcement
+      icon: mdi:volume-minus
+      collapsed: false
+      input:
+        cleanup_delay:
+          name: Delay Before Cleanup
+          description: Allow enough time for the message to finish before cleanup.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 5
+          selector:
+            duration:
+
+        normal_volume:
+          name: Volume After Announcement
+          description: Volume applied to every selected speaker after the delay.
+          default: 0.3
+          selector:
+            number:
+              min: 0
+              max: 1
+              step: 0.05
+              mode: slider
+
+        stop_after_announcement:
+          name: Stop Playback After Announcement
+          description: Stop any announcement audio still playing after the cleanup delay.
+          default: true
+          selector:
+            boolean:
+
+        extra_actions:
+          name: Extra Actions
+          description: Optional actions to run after speaker cleanup, such as a notification or light flash.
+          default: []
+          selector:
+            action:
+
+variables:
+  speakers: !input media_players
+  announcement_message: !input message
+  announcement_level: !input announcement_volume
+  normal_level: !input normal_volume
+  should_stop: !input stop_after_announcement
+
+trigger:
+  - platform: state
+    entity_id: !input doorbell_sensors
+    to: "on"
+
+condition:
+  - condition: and
+    conditions: !input extra_conditions
+
+action:
+  - action: media_player.volume_set
+    continue_on_error: true
+    target:
+      entity_id: "{{ speakers }}"
+    data:
+      volume_level: "{{ announcement_level }}"
+
+  - repeat:
+      for_each: "{{ speakers }}"
+      sequence:
+        - action: tts.speak
+          continue_on_error: true
+          target:
+            entity_id: !input tts_entity
+          data:
+            cache: false
+            media_player_entity_id: "{{ repeat.item }}"
+            message: "{{ announcement_message }}"
+
+  - delay: !input cleanup_delay
+
+  - action: media_player.volume_set
+    continue_on_error: true
+    target:
+      entity_id: "{{ speakers }}"
+    data:
+      volume_level: "{{ normal_level }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ should_stop }}"
+    then:
+      - action: media_player.media_stop
+        continue_on_error: true
+        target:
+          entity_id: "{{ speakers }}"
+
+  - choose: []
+    default: !input extra_actions
+
+mode: single
+max_exceeded: silent

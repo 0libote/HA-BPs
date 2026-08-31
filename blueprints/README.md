@@ -5,6 +5,45 @@ The import buttons use My Home Assistant to open the blueprint preview on your
 own instance; the manual URL below each button works if that redirect is not
 configured.
 
+## Doorbell Multi-Speaker TTS Announcement
+
+[![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2F0libote%2FHA-BPs%2Fblob%2Fmain%2Fblueprints%2Fdoorbell-announcement.yaml)
+
+Manual import URL:
+
+```text
+https://github.com/0libote/HA-BPs/blob/main/blueprints/doorbell-announcement.yaml
+```
+
+This blueprint announces a press from any selected doorbell binary sensor on
+one or more media players. The TTS entity, message, announcement volume, cleanup
+delay and volume afterwards are configurable. Optional conditions can suppress
+announcements, and optional extra actions can add notifications or light effects.
+
+### Configure
+
+1. Import the blueprint and select **Create automation**.
+2. Select the doorbell binary sensor or sensors.
+3. Select a `tts` entity and the media players that should announce the press.
+4. Set the message, volumes and cleanup delay.
+5. Optionally add conditions or extra actions, then save and test.
+
+The blueprint calls each speaker separately so an error from one speaker does
+not prevent the remaining speakers from being attempted. It ignores additional
+doorbell presses until the current cleanup delay has finished.
+
+### Troubleshooting
+
+- No announcement: confirm the doorbell entity changes to `on`, and test the
+  selected `tts` entity with the speaker in **Developer tools > Actions**.
+- Message is cut off: increase **Delay Before Cleanup** or disable **Stop
+  Playback After Announcement**.
+- Wrong volume afterwards: change **Volume After Announcement**. This mirrors
+  the original automation's fixed post-announcement volume rather than trying
+  to resume each speaker's earlier media session.
+
+[View the YAML](doorbell-announcement.yaml)
+
 ## IKEA BILRESA Scroll Wheel
 
 [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2F0libote%2FHA-BPs%2Fblob%2Fmain%2Fblueprints%2Fbilresa-scroll-wheel.yaml)
