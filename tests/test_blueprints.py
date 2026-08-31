@@ -120,3 +120,11 @@ def test_every_declared_input_is_used(path: Path) -> None:
 
     unused = sorted(set(inputs) - references)
     assert not unused, f"{blueprint_id(path)}: declared but unused inputs: {unused}"
+
+
+def test_myggspray_supports_separate_sensor_groups() -> None:
+    data = load_blueprint(ROOT / "blueprints/myggspray-auto-lights.yaml")
+    inputs = flatten_inputs(data["blueprint"]["input"])
+
+    assert inputs["motion_sensor"]["selector"]["entity"]["multiple"] is True
+    assert inputs["illuminance_sensor"]["selector"]["entity"]["multiple"] is True

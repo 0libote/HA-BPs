@@ -2,15 +2,18 @@ blueprint:
   name: IKEA MYGGSPRAY - Smart Motion Lights
   author: 0libote
   description: |
-    Smart motion lighting for the IKEA MYGGSPRAY Matter-over-Thread
-    occupancy and illuminance sensor.
+    Smart motion lighting for IKEA MYGGSPRAY Matter-over-Thread sensors and
+    other Home Assistant motion detectors.
 
     Created by @0libote
     GitHub: https://github.com/0libote/HA-BPs
 
     Behaviour:
-    - Starts only when motion is detected, illuminance is below the chosen
-      threshold, and every selected light is off and available.
+    - Starts when any selected motion detector reports motion, at least one
+      selected illuminance sensor is below the chosen threshold, and every
+      selected light is off and available.
+    - Motion-only detectors are supported; illuminance can be supplied by
+      separate detectors that expose light-level entities.
     - Sends brightness and colour in the same light.turn_on call, avoiding an
       intentional "turn on, then dim/recolour" sequence.
     - Turns the lights back off after occupancy has stayed continuously clear
@@ -53,10 +56,14 @@ blueprint:
       collapsed: false
       input:
         motion_sensor:
-          name: Motion / Occupancy Sensor
-          description: Select the MYGGSPRAY occupancy entity.
+          name: Motion / Occupancy Sensors
+          description: |
+            Select one or more motion detectors. They do not need to expose a
+            light-level entity; motion from any selected detector can turn the
+            lights on.
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: binary_sensor
                   device_class: occupancy
@@ -64,10 +71,14 @@ blueprint:
                   device_class: motion
 
         illuminance_sensor:
-          name: Illuminance Sensor
-          description: Select the MYGGSPRAY illuminance entity.
+          name: Illuminance Sensors
+          description: |
+            Select one or more light-level entities. These can belong to
+            different detectors from the motion sensors. The lights may turn
+            on when at least one valid reading is below the threshold.
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: sensor
                   device_class: illuminance
@@ -211,8 +222,8 @@ blueprint:
             condition:
 
 variables:
-  motion_sensor: !input motion_sensor
-  illuminance_sensor: !input illuminance_sensor
+  motion_sensors: !input motion_sensor
+  illuminance_sensors: !input illuminance_sensor
   lux_threshold: !input lux_threshold
   target_lights: !input target_lights
   automation_brightness_pct: !input brightness_pct
@@ -338,13 +349,21 @@ action:
                  (states.scene | map(attribute='entity_id') | list) }}
 
           - condition: template
-            value_template: "{{ is_state(motion_sensor, 'on') }}"
+            value_template: >
+              {{ (expand(motion_sensors)
+                   | selectattr('state', 'eq', 'on')
+                   | list | count) > 0 }}
 
           - condition: template
             value_template: >
-              {% set lux = states(illuminance_sensor) %}
-              {{ lux not in ['unknown', 'unavailable', 'none', '']
-                 and (lux | float(999999)) < (lux_threshold | float(0)) }}
+              {% set ns = namespace(below_threshold=false) %}
+              {% for sensor in expand(illuminance_sensors) %}
+                {% if is_number(sensor.state)
+                      and (sensor.state | float) < (lux_threshold | float(0)) %}
+                  {% set ns.below_threshold = true %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.below_threshold }}
 
           - condition: template
             value_template: >
@@ -361,8 +380,9 @@ action:
             continue_on_error: true
             data:
               scene_id: "{{ active_scene_id }}"
-              snapshot_entities:
-                - "{{ motion_sensor }}"
+              snapshot_entities: >
+                {{ expand(motion_sensors)
+                   | map(attribute='entity_id') | list }}
 
           - condition: template
             value_template: >
@@ -492,15 +512,44 @@ action:
               {{ active_scene_entity in
                  (states.scene | map(attribute='entity_id') | list) }}
 
+          - alias: Start the countdown only when every motion detector is clear
+            condition: template
+            value_template: >
+              {{ (expand(motion_sensors) | list | count) > 0
+                 and (expand(motion_sensors)
+                      | rejectattr('state', 'eq', 'off')
+                      | list | count) == 0 }}
+
+          - alias: Remember when each motion detector became clear
+            variables:
+              clear_state_signature: >
+                {% set ns = namespace(parts=[]) %}
+                {% for sensor in expand(motion_sensors)
+                     | sort(attribute='entity_id') %}
+                  {% set ns.parts = ns.parts +
+                     [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
+                {% endfor %}
+                {{ ns.parts | join('|') }}
+
           - delay: !input no_motion_duration
 
           - condition: template
-            value_template: "{{ is_state(motion_sensor, 'off') }}"
+            value_template: >
+              {{ (expand(motion_sensors) | list | count) > 0
+                 and (expand(motion_sensors)
+                      | rejectattr('state', 'eq', 'off')
+                      | list | count) == 0 }}
 
-          - alias: Ignore an old OFF countdown if motion changed since it began
+          - alias: Ignore an old countdown if any detector changed state
             condition: template
             value_template: >
-              {{ trigger.to_state.last_changed == states[motion_sensor].last_changed }}
+              {% set ns = namespace(parts=[]) %}
+              {% for sensor in expand(motion_sensors)
+                   | sort(attribute='entity_id') %}
+                {% set ns.parts = ns.parts +
+                   [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
+              {% endfor %}
+              {{ ns.parts | join('|') == clear_state_signature }}
 
           - condition: template
             value_template: >

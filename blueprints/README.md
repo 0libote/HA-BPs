@@ -59,21 +59,26 @@ Manual import URL:
 https://github.com/0libote/HA-BPs/blob/main/blueprints/myggspray-auto-lights.yaml
 ```
 
-This blueprint starts a motion-lighting session only when the room is dark
-enough and every selected light is off and available. It can remember the
-latest normal light profile, restore it before switch-off and clean up after
-manual changes, unavailable entities or an overlong session.
+This blueprint starts a motion-lighting session when any selected motion
+detector reports activity, at least one selected illuminance sensor says the
+room is dark enough, and every selected light is off and available. Motion-only
+detectors are supported because the illuminance entities are selected
+separately. It can remember the latest normal light profile, restore it before
+switch-off and clean up after manual changes, unavailable entities or an
+overlong session.
 
 ### Before you start
 
 - Pair the MYGGSPRAY with Home Assistant through Matter-over-Thread.
-- Identify its occupancy or motion entity and illuminance entity.
+- Identify the occupancy or motion entities covering the area and at least one
+  illuminance entity. They do not have to belong to the same devices.
 - Make sure the target lights can be controlled normally from Home Assistant.
 
 ### Configure
 
 1. Import the blueprint and select **Create automation**.
-2. Select the motion/occupancy sensor, illuminance sensor and target lights.
+2. Select one or more motion/occupancy sensors, one or more illuminance sensors,
+   and the target lights.
 3. Choose the lux threshold, automation brightness and optional colour.
 4. Set the clear delay and maximum session runtime.
 5. Optionally add activation conditions, then save and test in a non-critical
@@ -87,6 +92,9 @@ lights are used normally.
 
 - Motion does not start a session: check the current lux value and confirm every
   target light is both off and available.
+- Lights turn off while part of the area is occupied: confirm every selected
+  motion detector reports `on` while it detects activity. The clear delay starts
+  only after all selected detectors report `off`.
 - A previous profile is not restored: use the light normally while the motion
   session is idle so a fresh profile can be learned.
 - A bulb briefly flashes an old colour: some bulbs recall their hardware state
