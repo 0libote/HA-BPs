@@ -13,9 +13,16 @@ bun run dev          # http://localhost:4321
 
 ## Build (Cloudflare Pages)
 
-- Build command: `bun run build` (runs `data:build` then `astro build`)
+- Root directory: `website`
+- Build command: `bash scripts/cloudflare-build.sh`
 - Output directory: `dist`
 - No adapter / no server — all routes prerendered.
+
+`cloudflare-build.sh` installs a pinned recent bun first (the Pages image pins
+an old bun that can't read newer lockfiles), then runs a frozen install and
+`astro build`. Bump `BUN_TAG` in that script to move bun versions — verify
+locally with that exact binary first. `bun.lock` is kept in a format the
+pinned bun can parse.
 
 ## How showcase stays 1:1
 
