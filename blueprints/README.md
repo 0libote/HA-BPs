@@ -54,9 +54,13 @@ Manual import URL:
 https://github.com/0libote/HA-BPs/blob/main/blueprints/bilresa-scroll-wheel.yaml
 ```
 
-This blueprint turns the three physical BILRESA presets into independent light
-profiles. Each preset can use its own lights, brightness range, transition,
-ordered colour list and centre-button behaviour, or duplicate another preset.
+This blueprint turns the three physical BILRESA presets into light profiles
+with one shared wheel feel. Each preset keeps its own lights and ordered colour
+list, or duplicates another preset. Brightness step, range, transitions and the
+centre-button layout are shared so there is far less to tune.
+
+Presets 2 and 3 duplicate Preset 1 by default, so a single room works after
+configuring Preset 1 only.
 
 ### Before you start
 
@@ -68,22 +72,34 @@ ordered colour list and centre-button behaviour, or duplicate another preset.
 ### Configure
 
 1. Import the blueprint and select **Create automation**.
-2. Expand Preset 1 and select its lights and three event entities.
-3. Set its brightness limits, wheel step, transitions and colour order.
-4. Configure Presets 2 and 3, duplicate another preset, or disable them.
-5. Save the automation and test tap, hold and both wheel directions.
+2. In **Remote buttons**, select the 9 event entities, three per preset.
+3. In **Lights and presets**, select Preset 1 lights. Keep Presets 2 and 3
+   duplicating Preset 1, or switch them to custom lights or disabled.
+4. In **Wheel and centre button**, set the shared brightness step, limits,
+   transition and tap/hold layout.
+5. In **Colours**, order Preset 1 colours. Add custom lists for Presets 2 and
+   3 only when they use custom profiles.
+6. Save the automation and test tap, hold and both wheel directions.
+
+Scrolling right while a preset's lights are off turns them on at the minimum
+brightness. Colour while off turns them on with the first colour.
 
 Fast wheel movement uses Matter's `totalNumberOfPressesCounted` value. If the
 device itself aborts an over-limit multi-press and publishes no completed event,
 Home Assistant has no movement for the blueprint to recover.
 
+Updating from an older version resets per-preset tuning to the new shared
+Wheel and Colour settings. Re-check those once after updating.
+
 ### Troubleshooting
 
 - No response: watch the selected event entity in **Developer tools > States**
-  and confirm its `event_type` changes when the control is used.
+  and confirm it updates when the control is used.
 - Wrong direction or button: re-check the three event entities selected for that
   preset.
-- Unexpected brightness: check the preset's minimum, maximum and per-detent
+- Centre button does nothing: check the shared centre-button layout. Tap and
+  hold are matched permissively across Matter tap/hold event names.
+- Unexpected brightness: check the shared minimum, maximum and per-detent
   step before changing the automation logic.
 
 [View the YAML](bilresa-scroll-wheel.yaml)

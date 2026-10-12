@@ -7,19 +7,30 @@ blueprint:
     Created by @0libote
     GitHub: https://github.com/0libote/HA-BPs
 
+    Setup is top-down: pick the 9 remote event entities, pick the lights for
+    each preset, then tune the shared wheel and colour feel once.
+
     Each of the three physical BILRESA presets can:
     - Control its own set of lights.
     - Be disabled.
-    - Duplicate another preset's complete light profile.
-    - Use its own brightness step, limits and transition.
-    - Use its own ordered colour list and colour transition.
-    - Add unlimited custom colours with Home Assistant's RGB colour picker.
+    - Duplicate another preset's lights and colours.
+    - Share one brightness step, range and transition.
+    - Share one centre-button layout (Tap = Colour / Hold = Power, or reversed).
+    - Use its own ordered colour list with Home Assistant's RGB colour picker.
     - Reorder colours by dragging them in the blueprint editor.
-    - Choose whether Tap = Colour / Hold = Power, or Tap = Power / Hold = Colour.
+
+    Presets 2 and 3 duplicate Preset 1 by default, so a single room works after
+    configuring Preset 1 only. Switch a preset to a custom profile when it
+    should control different lights or cycle different colours.
 
     Wheel movement uses Matter's totalNumberOfPressesCounted value, so a quick
     multi-detent spin is applied as one larger brightness change. Brightness is
-    clamped to that preset's configured minimum and maximum.
+    clamped to the configured minimum and maximum. Scrolling right while the
+    preset's lights are off turns them on at the minimum brightness. Tapping
+    for colour while off turns them on with the first colour.
+
+    Updating from an older version resets per-preset tuning to the new shared
+    Wheel and Colour settings. Re-check those once after updating.
 
     Important Matter limitation:
     If the BILRESA itself aborts an over-limit multi-press sequence and sends no
@@ -34,17 +45,109 @@ blueprint:
   input:
 
     # ============================================================
-    # PRESET 1
+    # REMOTE
     # ============================================================
-    preset_1:
-      name: Preset 1
-      icon: mdi:numeric-1-circle
-      collapsed: true
+    remote:
+      name: Remote buttons
+      icon: mdi:remote
+      collapsed: false
       description: |
-        Buttons 1 / 2 / 3. Configure the complete Preset 1 profile here.
+        The 9 BILRESA event entities, three per physical preset. On the device
+        page, identify right/brighter, left/dimmer and centre push for each
+        preset and confirm they update when the control is used.
+      input:
 
-        Colours are an ordered list. Add, edit, delete, and drag them into the
-        exact order you want the centre button to cycle through.
+        button_1:
+          name: Preset 1 - Right / Brighter
+          description: Preset 1 scroll-right event entity.
+          default: event.bilresa_unused_preset_1_button_1
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_2:
+          name: Preset 1 - Left / Dimmer
+          description: Preset 1 scroll-left event entity.
+          default: event.bilresa_unused_preset_1_button_2
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_3:
+          name: Preset 1 - Centre Push
+          description: Preset 1 centre/push event entity.
+          default: event.bilresa_unused_preset_1_button_3
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_4:
+          name: Preset 2 - Right / Brighter
+          description: Preset 2 scroll-right event entity.
+          default: event.bilresa_unused_preset_2_button_4
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_5:
+          name: Preset 2 - Left / Dimmer
+          description: Preset 2 scroll-left event entity.
+          default: event.bilresa_unused_preset_2_button_5
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_6:
+          name: Preset 2 - Centre Push
+          description: Preset 2 centre/push event entity.
+          default: event.bilresa_unused_preset_2_button_6
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_7:
+          name: Preset 3 - Right / Brighter
+          description: Preset 3 scroll-right event entity.
+          default: event.bilresa_unused_preset_3_button_7
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_8:
+          name: Preset 3 - Left / Dimmer
+          description: Preset 3 scroll-left event entity.
+          default: event.bilresa_unused_preset_3_button_8
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+        button_9:
+          name: Preset 3 - Centre Push
+          description: Preset 3 centre/push event entity.
+          default: event.bilresa_unused_preset_3_button_9
+          selector:
+            entity:
+              filter:
+                - domain: event
+
+    # ============================================================
+    # LIGHTS
+    # ============================================================
+    lights:
+      name: Lights and presets
+      icon: mdi:lightbulb-group
+      collapsed: false
+      description: |
+        Pick which lights each preset controls. Duplicating reuses that
+        preset's lights and colour list. Disabled presets do nothing.
       input:
 
         preset_1_mode:
@@ -61,7 +164,7 @@ blueprint:
 
         preset_1_lights:
           name: Preset 1 Lights
-          description: Lights controlled by this preset.
+          description: Lights controlled by this preset. Ignored when disabled.
           default: []
           selector:
             entity:
@@ -69,176 +172,17 @@ blueprint:
               filter:
                 - domain: light
 
-        button_1:
-          name: Button 1 - Right / Brighter
-          description: Preset 1 scroll-right event entity.
-          default: event.bilresa_unused_preset_1_button_1
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        button_2:
-          name: Button 2 - Left / Dimmer
-          description: Preset 1 scroll-left event entity.
-          default: event.bilresa_unused_preset_1_button_2
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        button_3:
-          name: Button 3 - Centre Push
-          description: Preset 1 centre/push event entity.
-          default: event.bilresa_unused_preset_1_button_3
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        preset_1_centre_layout:
-          name: Centre Button Behaviour
-          default: tap_colour_hold_power
-          selector:
-            select:
-              mode: dropdown
-              options:
-                - label: Tap = Colour / Hold = Power
-                  value: tap_colour_hold_power
-                - label: Tap = Power / Hold = Colour
-                  value: tap_power_hold_colour
-
-        preset_1_brightness_step:
-          name: Brightness Per Wheel Detent
-          description: Percentage changed for each reported wheel detent.
-          default: 10
-          selector:
-            number:
-              min: 1
-              max: 50
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_1_brightness_min:
-          name: Minimum Brightness
-          description: Scrolling left will never go below this percentage.
-          default: 1
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_1_brightness_max:
-          name: Maximum Brightness
-          description: Scrolling right will never go above this percentage.
-          default: 100
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_1_brightness_transition:
-          name: Brightness Transition
-          default: 0.2
-          selector:
-            number:
-              min: 0
-              max: 5
-              step: 0.1
-              unit_of_measurement: s
-              mode: slider
-
-        preset_1_colour_presets:
-          name: Colours to Cycle
-          description: |
-            Add any colours you want with the RGB colour picker. Drag the rows
-            to change the cycle order. The name is only for display.
-          default:
-            - name: Warm White
-              colour: [255, 166, 87]
-            - name: Soft White
-              colour: [255, 214, 170]
-            - name: Daylight
-              colour: [255, 244, 229]
-            - name: Red
-              colour: [255, 0, 0]
-            - name: Orange
-              colour: [255, 80, 0]
-            - name: Yellow
-              colour: [255, 220, 0]
-            - name: Green
-              colour: [0, 255, 0]
-            - name: Cyan
-              colour: [0, 255, 255]
-            - name: Sky Blue
-              colour: [0, 170, 255]
-            - name: Blue
-              colour: [0, 80, 255]
-            - name: Purple
-              colour: [160, 0, 255]
-            - name: Pink
-              colour: [255, 0, 120]
-            - name: Cool White
-              colour: [220, 235, 255]
-          selector:
-            object:
-              multiple: true
-              label_field: name
-              description_field: colour
-              fields:
-                name:
-                  label: Name
-                  required: true
-                  selector:
-                    text:
-                colour:
-                  label: Colour
-                  required: true
-                  selector:
-                    color_rgb:
-
-        preset_1_colour_transition:
-          name: Colour Transition
-          default: 0.5
-          selector:
-            number:
-              min: 0
-              max: 5
-              step: 0.1
-              unit_of_measurement: s
-              mode: slider
-
-    # ============================================================
-    # PRESET 2
-    # ============================================================
-    preset_2:
-      name: Preset 2
-      icon: mdi:numeric-2-circle
-      collapsed: true
-      description: |
-        Buttons 4 / 5 / 6. Configure the complete Preset 2 profile here.
-
-        Duplicate Preset 1 reuses Preset 1's lights and all behaviour settings.
-      input:
-
         preset_2_mode:
           name: Preset 2 Mode
-          default: custom
+          default: duplicate_preset_1
           selector:
             select:
               mode: dropdown
               options:
-                - label: Custom profile
-                  value: custom
                 - label: Duplicate Preset 1 profile
                   value: duplicate_preset_1
+                - label: Custom profile
+                  value: custom
                 - label: Disabled
                   value: disabled
 
@@ -252,175 +196,19 @@ blueprint:
               filter:
                 - domain: light
 
-        button_4:
-          name: Button 4 - Right / Brighter
-          description: Preset 2 scroll-right event entity.
-          default: event.bilresa_unused_preset_2_button_4
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        button_5:
-          name: Button 5 - Left / Dimmer
-          description: Preset 2 scroll-left event entity.
-          default: event.bilresa_unused_preset_2_button_5
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        button_6:
-          name: Button 6 - Centre Push
-          description: Preset 2 centre/push event entity.
-          default: event.bilresa_unused_preset_2_button_6
-          selector:
-            entity:
-              filter:
-                - domain: event
-
-        preset_2_centre_layout:
-          name: Centre Button Behaviour
-          default: tap_colour_hold_power
-          selector:
-            select:
-              mode: dropdown
-              options:
-                - label: Tap = Colour / Hold = Power
-                  value: tap_colour_hold_power
-                - label: Tap = Power / Hold = Colour
-                  value: tap_power_hold_colour
-
-        preset_2_brightness_step:
-          name: Brightness Per Wheel Detent
-          default: 10
-          selector:
-            number:
-              min: 1
-              max: 50
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_2_brightness_min:
-          name: Minimum Brightness
-          default: 1
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_2_brightness_max:
-          name: Maximum Brightness
-          default: 100
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_2_brightness_transition:
-          name: Brightness Transition
-          default: 0.2
-          selector:
-            number:
-              min: 0
-              max: 5
-              step: 0.1
-              unit_of_measurement: s
-              mode: slider
-
-        preset_2_colour_presets:
-          name: Colours to Cycle
-          description: |
-            Add any colours you want with the RGB colour picker. Drag the rows
-            to change the cycle order. Ignored when duplicating Preset 1.
-          default:
-            - name: Warm White
-              colour: [255, 166, 87]
-            - name: Soft White
-              colour: [255, 214, 170]
-            - name: Daylight
-              colour: [255, 244, 229]
-            - name: Red
-              colour: [255, 0, 0]
-            - name: Orange
-              colour: [255, 80, 0]
-            - name: Yellow
-              colour: [255, 220, 0]
-            - name: Green
-              colour: [0, 255, 0]
-            - name: Cyan
-              colour: [0, 255, 255]
-            - name: Sky Blue
-              colour: [0, 170, 255]
-            - name: Blue
-              colour: [0, 80, 255]
-            - name: Purple
-              colour: [160, 0, 255]
-            - name: Pink
-              colour: [255, 0, 120]
-            - name: Cool White
-              colour: [220, 235, 255]
-          selector:
-            object:
-              multiple: true
-              label_field: name
-              description_field: colour
-              fields:
-                name:
-                  label: Name
-                  required: true
-                  selector:
-                    text:
-                colour:
-                  label: Colour
-                  required: true
-                  selector:
-                    color_rgb:
-
-        preset_2_colour_transition:
-          name: Colour Transition
-          default: 0.5
-          selector:
-            number:
-              min: 0
-              max: 5
-              step: 0.1
-              unit_of_measurement: s
-              mode: slider
-
-    # ============================================================
-    # PRESET 3
-    # ============================================================
-    preset_3:
-      name: Preset 3
-      icon: mdi:numeric-3-circle
-      collapsed: true
-      description: |
-        Buttons 7 / 8 / 9. Configure the complete Preset 3 profile here.
-
-        Duplicate Preset 1 or Preset 2 to reuse that complete light profile.
-      input:
-
         preset_3_mode:
           name: Preset 3 Mode
-          default: custom
+          default: duplicate_preset_1
           selector:
             select:
               mode: dropdown
               options:
-                - label: Custom profile
-                  value: custom
                 - label: Duplicate Preset 1 profile
                   value: duplicate_preset_1
                 - label: Duplicate Preset 2 profile
                   value: duplicate_preset_2
+                - label: Custom profile
+                  value: custom
                 - label: Disabled
                   value: disabled
 
@@ -434,34 +222,66 @@ blueprint:
               filter:
                 - domain: light
 
-        button_7:
-          name: Button 7 - Right / Brighter
-          description: Preset 3 scroll-right event entity.
-          default: event.bilresa_unused_preset_3_button_7
-          selector:
-            entity:
-              filter:
-                - domain: event
+    # ============================================================
+    # WHEEL AND CENTRE BUTTON (SHARED)
+    # ============================================================
+    wheel:
+      name: Wheel and centre button
+      icon: mdi:tune
+      collapsed: true
+      description: |
+        Shared feel for every preset. Scrolling right while the lights are off
+        turns them on at the minimum brightness.
+      input:
 
-        button_8:
-          name: Button 8 - Left / Dimmer
-          description: Preset 3 scroll-left event entity.
-          default: event.bilresa_unused_preset_3_button_8
+        brightness_step:
+          name: Brightness Per Wheel Detent
+          description: Percentage changed for each reported wheel detent.
+          default: 10
           selector:
-            entity:
-              filter:
-                - domain: event
+            number:
+              min: 1
+              max: 50
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
 
-        button_9:
-          name: Button 9 - Centre Push
-          description: Preset 3 centre/push event entity.
-          default: event.bilresa_unused_preset_3_button_9
+        brightness_min:
+          name: Minimum Brightness
+          description: Scrolling left will never go below this percentage.
+          default: 1
           selector:
-            entity:
-              filter:
-                - domain: event
+            number:
+              min: 1
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
 
-        preset_3_centre_layout:
+        brightness_max:
+          name: Maximum Brightness
+          description: Scrolling right will never go above this percentage.
+          default: 100
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+        brightness_transition:
+          name: Brightness Transition
+          default: 0.2
+          selector:
+            number:
+              min: 0
+              max: 5
+              step: 0.1
+              unit_of_measurement: s
+              mode: slider
+
+        centre_layout:
           name: Centre Button Behaviour
           default: tap_colour_hold_power
           selector:
@@ -473,55 +293,21 @@ blueprint:
                 - label: Tap = Power / Hold = Colour
                   value: tap_power_hold_colour
 
-        preset_3_brightness_step:
-          name: Brightness Per Wheel Detent
-          default: 10
-          selector:
-            number:
-              min: 1
-              max: 50
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
+    # ============================================================
+    # COLOURS
+    # ============================================================
+    colours:
+      name: Colours
+      icon: mdi:palette
+      collapsed: true
+      description: |
+        Ordered colour lists. Add colours with the RGB colour picker and drag
+        rows into the order the centre button should cycle through. The name is
+        only for display. Duplicated presets reuse the source preset's list.
+      input:
 
-        preset_3_brightness_min:
-          name: Minimum Brightness
-          default: 1
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_3_brightness_max:
-          name: Maximum Brightness
-          default: 100
-          selector:
-            number:
-              min: 1
-              max: 100
-              step: 1
-              unit_of_measurement: "%"
-              mode: slider
-
-        preset_3_brightness_transition:
-          name: Brightness Transition
-          default: 0.2
-          selector:
-            number:
-              min: 0
-              max: 5
-              step: 0.1
-              unit_of_measurement: s
-              mode: slider
-
-        preset_3_colour_presets:
-          name: Colours to Cycle
-          description: |
-            Add any colours you want with the RGB colour picker. Drag the rows
-            to change the cycle order. Ignored when duplicating another preset.
+        preset_1_colour_presets:
+          name: Preset 1 Colours to Cycle
           default:
             - name: Warm White
               colour: [255, 166, 87]
@@ -566,7 +352,49 @@ blueprint:
                   selector:
                     color_rgb:
 
-        preset_3_colour_transition:
+        preset_2_colour_presets:
+          name: Preset 2 Colours to Cycle
+          description: Ignored when duplicating Preset 1.
+          default: []
+          selector:
+            object:
+              multiple: true
+              label_field: name
+              description_field: colour
+              fields:
+                name:
+                  label: Name
+                  required: true
+                  selector:
+                    text:
+                colour:
+                  label: Colour
+                  required: true
+                  selector:
+                    color_rgb:
+
+        preset_3_colour_presets:
+          name: Preset 3 Colours to Cycle
+          description: Ignored when duplicating another preset.
+          default: []
+          selector:
+            object:
+              multiple: true
+              label_field: name
+              description_field: colour
+              fields:
+                name:
+                  label: Name
+                  required: true
+                  selector:
+                    text:
+                colour:
+                  label: Colour
+                  required: true
+                  selector:
+                    color_rgb:
+
+        colour_transition:
           name: Colour Transition
           default: 0.5
           selector:
@@ -583,7 +411,7 @@ blueprint:
 # ==============================================================
 
 mode: queued
-max: 30
+max: 10
 max_exceeded: silent
 
 
@@ -706,50 +534,41 @@ action:
       p2_lights: !input preset_2_lights
       p3_lights: !input preset_3_lights
 
-      p1_centre_layout: !input preset_1_centre_layout
-      p2_centre_layout: !input preset_2_centre_layout
-      p3_centre_layout: !input preset_3_centre_layout
-
-      p1_brightness_step: !input preset_1_brightness_step
-      p2_brightness_step: !input preset_2_brightness_step
-      p3_brightness_step: !input preset_3_brightness_step
-
-      p1_brightness_min: !input preset_1_brightness_min
-      p2_brightness_min: !input preset_2_brightness_min
-      p3_brightness_min: !input preset_3_brightness_min
-
-      p1_brightness_max: !input preset_1_brightness_max
-      p2_brightness_max: !input preset_2_brightness_max
-      p3_brightness_max: !input preset_3_brightness_max
-
-      p1_brightness_transition: !input preset_1_brightness_transition
-      p2_brightness_transition: !input preset_2_brightness_transition
-      p3_brightness_transition: !input preset_3_brightness_transition
+      brightness_step: !input brightness_step
+      brightness_min: !input brightness_min
+      brightness_max: !input brightness_max
+      brightness_transition: !input brightness_transition
+      centre_layout: !input centre_layout
 
       p1_colour_presets: !input preset_1_colour_presets
       p2_colour_presets: !input preset_2_colour_presets
       p3_colour_presets: !input preset_3_colour_presets
+      colour_transition: !input colour_transition
 
-      p1_colour_transition: !input preset_1_colour_transition
-      p2_colour_transition: !input preset_2_colour_transition
-      p3_colour_transition: !input preset_3_colour_transition
-
-      # Matter event type:
-      # multi_press_1 = normal tap
-      # long_press    = hold
+      # Matter event type. Centre-button matching is permissive on purpose:
+      # Matter integrations report tap/hold with different names, so any event
+      # containing "long"/"hold" counts as a hold and any press/click/tap
+      # counts as a tap. Anything else is ignored.
       event_type: >-
         {{
           trigger.to_state.attributes.event_type
-          if trigger.to_state.attributes.event_type is defined
+          if trigger.to_state is not none
+          and trigger.to_state.attributes.event_type is defined
           else ''
         }}
 
-      # BILRESA reports a burst of wheel detents in this attribute.
+      # BILRESA reports a burst of wheel detents in this attribute. Clamped so
+      # one spin cannot jump further than intended by an extreme value.
       scroll_clicks: >-
         {{
-          trigger.to_state.attributes.totalNumberOfPressesCounted
-          | default(1, true)
-          | int(1)
+          [[
+            trigger.to_state.attributes.totalNumberOfPressesCounted
+            | default(1, true)
+            | int(1),
+            1
+          ] | max, 25] | min
+          if trigger.to_state is not none
+          else 1
         }}
 
       legacy_colour_order:
@@ -782,7 +601,9 @@ action:
   # ------------------------------------------------------------
   - variables:
 
-      preset_enabled: >-
+      event_type_lower: "{{ (event_type | string | lower) }}"
+
+      trigger_enabled: >-
         {{
           (
             trigger.id in ['preset1_right', 'preset1_left', 'preset1_centre']
@@ -827,10 +648,33 @@ action:
           {% endif %}
         {% endif %}
 
+  - variables:
+
+      # A preset that duplicates a disabled profile must also do nothing.
+      # This is a separate step so source_preset from above is already set.
+      source_enabled: >-
+        {{
+          (
+            source_preset | int == 1
+            and p1_mode != 'disabled'
+          )
+          or
+          (
+            source_preset | int == 2
+            and p2_mode != 'disabled'
+            and p2_mode != 'duplicate_preset_1'
+          )
+          or
+          (
+            source_preset | int == 3
+            and p3_mode != 'disabled'
+          )
+        }}
+
 
   # Disabled presets stop here.
   - condition: template
-    value_template: "{{ preset_enabled | bool }}"
+    value_template: "{{ trigger_enabled | bool and source_enabled | bool }}"
 
 
   # ------------------------------------------------------------
@@ -847,51 +691,6 @@ action:
           else p3_lights
         }}
 
-      centre_layout: >-
-        {{
-          p1_centre_layout
-          if source_preset | int == 1
-          else p2_centre_layout
-          if source_preset | int == 2
-          else p3_centre_layout
-        }}
-
-      brightness_step: >-
-        {{
-          p1_brightness_step
-          if source_preset | int == 1
-          else p2_brightness_step
-          if source_preset | int == 2
-          else p3_brightness_step
-        }}
-
-      brightness_min: >-
-        {{
-          p1_brightness_min
-          if source_preset | int == 1
-          else p2_brightness_min
-          if source_preset | int == 2
-          else p3_brightness_min
-        }}
-
-      brightness_max: >-
-        {{
-          p1_brightness_max
-          if source_preset | int == 1
-          else p2_brightness_max
-          if source_preset | int == 2
-          else p3_brightness_max
-        }}
-
-      brightness_transition: >-
-        {{
-          p1_brightness_transition
-          if source_preset | int == 1
-          else p2_brightness_transition
-          if source_preset | int == 2
-          else p3_brightness_transition
-        }}
-
       chosen_colours: >-
         {{
           p1_colour_presets
@@ -899,15 +698,6 @@ action:
           else p2_colour_presets
           if source_preset | int == 2
           else p3_colour_presets
-        }}
-
-      colour_transition: >-
-        {{
-          p1_colour_transition
-          if source_preset | int == 1
-          else p2_colour_transition
-          if source_preset | int == 2
-          else p3_colour_transition
         }}
 
 
@@ -958,37 +748,34 @@ action:
         {{ ns.items }}
 
       centre_action: >-
-        {{
-          (
-            'power'
-            if centre_layout == 'tap_power_hold_colour'
-            else 'colour'
-          )
-          if event_type == 'multi_press_1'
-          else
-          (
-            'colour'
-            if centre_layout == 'tap_power_hold_colour'
-            else 'power'
-          )
-          if event_type == 'long_press'
-          else 'ignore'
-        }}
+        {% if 'long' in event_type_lower or 'hold' in event_type_lower %}
+          {% if centre_layout == 'tap_power_hold_colour' %}
+            colour
+          {% else %}
+            power
+          {% endif %}
+        {% elif 'press' in event_type_lower or 'click' in event_type_lower or 'tap' in event_type_lower or 'single' in event_type_lower or 'double' in event_type_lower or 'multi' in event_type_lower or 'initial' in event_type_lower or 'short' in event_type_lower %}
+          {% if centre_layout == 'tap_power_hold_colour' %}
+            power
+          {% else %}
+            colour
+          {% endif %}
+        {% else %}
+          ignore
+        {% endif %}
 
 
   # ------------------------------------------------------------
   # STALE MATTER EVENT PROTECTION
   # ------------------------------------------------------------
+  # Event entities update last_changed on every press. Queued wheel spins can
+  # lag a few seconds behind real time, so the window is generous. Without it,
+  # an old replayed state after a restart could toggle the lights.
   - condition: template
     value_template: >-
       {{
-        trigger.to_state.attributes.event_type is defined
-        and trigger.to_state.attributes.event_type != none
-        and (now() - trigger.to_state.last_changed).total_seconds() < 5
-        and (
-          now()
-          - (trigger.to_state.state | as_datetime | as_local)
-        ).total_seconds() < 5
+        trigger.to_state is not none
+        and (now() - trigger.to_state.last_changed).total_seconds() < 30
       }}
 
 
@@ -1005,52 +792,87 @@ action:
             value_template: >-
               {{
                 trigger.id in ['preset1_right', 'preset2_right', 'preset3_right']
-                and on_lights | count > 0
+                and target_lights | count > 0
               }}
         sequence:
-          - repeat:
-              for_each: "{{ on_lights }}"
-              sequence:
+          - choose:
 
-                - variables:
-                    new_brightness_pct: >-
-                      {% set current =
-                        (state_attr(repeat.item, 'brightness') | int(1))
-                        / 255 * 100
-                      %}
+              # Lights are on: brighten the lights that are on.
+              - conditions:
+                  - condition: template
+                    value_template: "{{ on_lights | count > 0 }}"
+                sequence:
+                  - repeat:
+                      for_each: "{{ on_lights }}"
+                      sequence:
 
-                      {% set low =
-                        [brightness_min | float, brightness_max | float] | min
-                      %}
+                        - variables:
+                            new_brightness_pct: >-
+                              {% set current =
+                                (state_attr(repeat.item, 'brightness') | int(1))
+                                / 255 * 100
+                              %}
 
-                      {% set high =
-                        [brightness_min | float, brightness_max | float] | max
-                      %}
+                              {% set low =
+                                [brightness_min | float, brightness_max | float] | min
+                              %}
 
-                      {% set requested =
-                        current
-                        + (
-                          (brightness_step | float)
-                          * (scroll_clicks | int(1))
-                        )
-                      %}
+                              {% set high =
+                                [brightness_min | float, brightness_max | float] | max
+                              %}
 
-                      {{
-                        [
-                          high,
-                          [low, requested] | max
-                        ]
-                        | min
-                        | round(0)
-                        | int
-                      }}
+                              {% set requested =
+                                current
+                                + (
+                                  (brightness_step | float)
+                                  * (scroll_clicks | int(1))
+                                )
+                              %}
 
-                - action: light.turn_on
-                  target:
-                    entity_id: "{{ repeat.item }}"
-                  data:
-                    brightness_pct: "{{ new_brightness_pct }}"
-                    transition: "{{ brightness_transition }}"
+                              {{
+                                [
+                                  high,
+                                  [low, requested] | max
+                                ]
+                                | min
+                                | round(0)
+                                | int
+                              }}
+
+                        - action: light.turn_on
+                          target:
+                            entity_id: "{{ repeat.item }}"
+                          data:
+                            brightness_pct: "{{ new_brightness_pct }}"
+                            transition: "{{ brightness_transition }}"
+
+            # Everything is off: scrolling right wakes the preset at minimum.
+            default:
+              - variables:
+                  wake_brightness_pct: >-
+                    {% set low =
+                      [brightness_min | float, brightness_max | float] | min
+                    %}
+
+                    {% set high =
+                      [brightness_min | float, brightness_max | float] | max
+                    %}
+
+                    {{
+                      [
+                        high,
+                        [low, brightness_min | float] | max
+                      ]
+                      | min
+                      | round(0)
+                      | int
+                    }}
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ target_lights }}"
+                data:
+                  brightness_pct: "{{ wake_brightness_pct }}"
+                  transition: "{{ brightness_transition }}"
 
 
       # ========================================================
@@ -1136,11 +958,15 @@ action:
                   - action: light.turn_off
                     target:
                       entity_id: "{{ target_lights }}"
+                    data:
+                      transition: "{{ brightness_transition }}"
 
             default:
               - action: light.turn_on
                 target:
                   entity_id: "{{ target_lights }}"
+                data:
+                  transition: "{{ brightness_transition }}"
 
 
       # ========================================================
@@ -1152,79 +978,95 @@ action:
               {{
                 trigger.id in ['preset1_centre', 'preset2_centre', 'preset3_centre']
                 and centre_action == 'colour'
-                and on_lights | count > 0
+                and target_lights | count > 0
                 and active_colours | count > 0
               }}
         sequence:
+          - choose:
 
-          - variables:
+              # Lights are on: advance from the closest colour.
+              - conditions:
+                  - condition: template
+                    value_template: "{{ on_lights | count > 0 }}"
+                sequence:
 
-              reference_light: >-
-                {{ on_lights[0] }}
+                  - variables:
 
-              current_rgb: >-
-                {{ state_attr(reference_light, 'rgb_color') }}
+                      reference_light: >-
+                        {{ on_lights[0] }}
 
-              next_rgb: >-
-                {% set ns = namespace(
-                  best_index=-1,
-                  best_distance=999999999
-                ) %}
+                      current_rgb: >-
+                        {{ state_attr(reference_light, 'rgb_color') }}
 
-                {% if current_rgb is not none %}
+                      next_rgb: >-
+                        {% set ns = namespace(
+                          best_index=-1,
+                          best_distance=999999999
+                        ) %}
 
-                  {% for rgb in active_colours %}
+                        {% if current_rgb is not none %}
 
-                    {% set red_difference =
-                      (current_rgb[0] | int)
-                      -
-                      (rgb[0] | int)
-                    %}
+                          {% for rgb in active_colours %}
 
-                    {% set green_difference =
-                      (current_rgb[1] | int)
-                      -
-                      (rgb[1] | int)
-                    %}
+                            {% set red_difference =
+                              (current_rgb[0] | int)
+                              -
+                              (rgb[0] | int)
+                            %}
 
-                    {% set blue_difference =
-                      (current_rgb[2] | int)
-                      -
-                      (rgb[2] | int)
-                    %}
+                            {% set green_difference =
+                              (current_rgb[1] | int)
+                              -
+                              (rgb[1] | int)
+                            %}
 
-                    {% set distance =
-                      (red_difference * red_difference)
-                      +
-                      (green_difference * green_difference)
-                      +
-                      (blue_difference * blue_difference)
-                    %}
+                            {% set blue_difference =
+                              (current_rgb[2] | int)
+                              -
+                              (rgb[2] | int)
+                            %}
 
-                    {% if distance < ns.best_distance %}
-                      {% set ns.best_distance = distance %}
-                      {% set ns.best_index = loop.index0 %}
-                    {% endif %}
+                            {% set distance =
+                              (red_difference * red_difference)
+                              +
+                              (green_difference * green_difference)
+                              +
+                              (blue_difference * blue_difference)
+                            %}
 
-                  {% endfor %}
+                            {% if distance < ns.best_distance %}
+                              {% set ns.best_distance = distance %}
+                              {% set ns.best_index = loop.index0 %}
+                            {% endif %}
 
-                {% endif %}
+                          {% endfor %}
 
-                {% if ns.best_index == -1 %}
-                  {% set next_index = 0 %}
-                {% else %}
-                  {% set next_index =
-                    (ns.best_index + 1)
-                    %
-                    (active_colours | count)
-                  %}
-                {% endif %}
+                        {% endif %}
 
-                {{ active_colours[next_index] }}
+                        {% if ns.best_index == -1 %}
+                          {% set next_index = 0 %}
+                        {% else %}
+                          {% set next_index =
+                            (ns.best_index + 1)
+                            %
+                            (active_colours | count)
+                          %}
+                        {% endif %}
 
-          - action: light.turn_on
-            target:
-              entity_id: "{{ on_lights }}"
-            data:
-              rgb_color: "{{ next_rgb }}"
-              transition: "{{ colour_transition }}"
+                        {{ active_colours[next_index] }}
+
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ on_lights }}"
+                    data:
+                      rgb_color: "{{ next_rgb }}"
+                      transition: "{{ colour_transition }}"
+
+            # Everything is off: colour tap wakes the preset on the first colour.
+            default:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ target_lights }}"
+                data:
+                  rgb_color: "{{ active_colours[0] }}"
+                  transition: "{{ colour_transition }}"
