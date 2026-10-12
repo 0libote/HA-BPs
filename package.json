@@ -1,0 +1,9 @@
+{
+  "name": "ha-bps",
+  "private": true,
+  "scripts": {
+    "build": "cd website && bun install && bun run build",
+    "dev": "cd website && bun run dev",
+    "data:build": "cd website && bun run data:build"
+  }
+}
