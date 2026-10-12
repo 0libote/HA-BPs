@@ -1,0 +1,34 @@
+---
+import HABase from '../../layouts/HABase.astro';
+import { blueprints, shortBlurb } from '../../lib/blueprints';
+---
+<HABase title="Showcase — 1:1 HA config replica" active="showcase" crumbs="Showcase · interactive HA editor replica" heading="Showcase">
+  <p class="section-sub" style="max-width: 720px;">
+    Every blueprint below renders the same sections, fields, defaults and selector types as Home
+    Assistant's blueprint editor — entity pickers, sliders, toggles, duration, colour lists and all.
+    Configure with mock entities, watch the automation YAML update live, then import for real.
+  </p>
+  <div class="ha-grid2">
+    {blueprints.map((b) => (
+      <div class="ha-card bp-card">
+        <div><span class="pill blue">{b.sections.length} sections</span> <span class="pill">{b.fieldCount} inputs</span></div>
+        <h3>{b.name}</h3>
+        <p>{shortBlurb[b.slug] ?? ''}</p>
+        <div class="row">
+          <a class="ha-btn" href={`/showcase/${b.slug}`}>Open replica</a>
+          <a class="ha-btn ghost" href={`/docs/${b.slug}`}>Docs</a>
+        </div>
+        <div class="small muted">{b.sections.map((s) => s.name).join(' · ')}</div>
+      </div>
+    ))}
+  </div>
+  <div class="ha-card" style="margin-top: 16px;">
+    <b>How fidelity is guaranteed</b>
+    <p class="small muted">
+      <code class="inline">bun run data:build</code> parses <code class="inline">blueprints/*.yaml</code> into
+      sections → fields → selectors (entity, number, text, boolean, duration, select, condition, action,
+      color_rgb, color_temp, object). The React editor renders each selector the way HA does.
+      Collapsed sections default exactly as the YAML declares. If the YAML changes, the showcase changes.
+    </p>
+  </div>
+</HABase>

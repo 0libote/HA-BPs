@@ -1,0 +1,67 @@
+---
+import HABase from '../../layouts/HABase.astro';
+import { blueprints, getBlueprint } from '../../lib/blueprints';
+import { md } from '../../lib/markdown';
+
+export function getStaticPaths() {
+  return blueprints.map((b) => ({ params: { slug: b.slug } }));
+}
+
+const { slug } = Astro.params;
+const bp = getBlueprint(slug ?? '');
+if (!bp) throw new Error(`Unknown blueprint: ${slug}`);
+const guideHtml = md(bp.docsMarkdown || 'No guide yet.');
+---
+<HABase
+  title={`${bp.name} — docs`}
+  active="docs"
+  crumbs={`Docs / ${bp.file}`}
+  heading={bp.name}
+>
+  <div class="toc">
+    <a class="pill" href="/docs">← All docs</a>
+    <a class="pill" href={`/showcase/${bp.slug}`}>Open showcase replica</a>
+    <a class="pill blue" href={bp.importUrl} target="_blank" rel="noreferrer">Import in HA ↗</a>
+  </div>
+
+  <div class="ha-card" style="margin-bottom: 14px;">
+    <span class="pill blue">{bp.domain}</span> <span class="pill">HA {bp.min_version}+</span> <span class="pill green">{bp.fieldCount} inputs</span>
+    <p class="muted" style="white-space: pre-wrap; margin-bottom: 0;">{bp.description}</p>
+    <p class="small muted">Manual import URL: <code class="inline">{bp.manualUrl}</code></p>
+  </div>
+
+  <div class="ha-grid2" style="align-items: start;">
+    <div class="ha-card doc-prose">
+      <b>Setup guide</b>
+      <div set:html={guideHtml} />
+    </div>
+    <div>
+      <div class="ha-card">
+        <b>Input reference (from YAML)</b>
+        <p class="small muted">Every field, default and selector — generated at build time.</p>
+        {bp.sections.map((s) => (
+          <div style="margin-bottom: 12px;">
+            <b class="small">▸ {s.name}</b> <span class="small muted">· {s.key} · {s.collapsed ? 'collapsed' : 'open'} by default</span>
+            <table class="ha-table">
+              <thead><tr><th>Input</th><th>Selector</th><th>Default</th></tr></thead>
+              <tbody>
+                {s.fields.map((f) => (
+                  <tr>
+                    <td><b>{f.name}</b><br /><span class="small muted"><code class="inline">{f.key}</code><br />{f.description?.slice(0, 140)}</span></td>
+                    <td><code class="inline">{f.selectorType}</code></td>
+                    <td class="small muted"><code class="inline">{JSON.stringify(f.default)?.slice(0, 80) ?? '—'}</code></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+      <div class="ha-card" style="margin-top: 12px;">
+        <b>Source YAML</b>
+        <p class="small muted">Full blueprint — also on <a href={bp.githubUrl} target="_blank" rel="noreferrer">GitHub</a>.</p>
+        <pre class="ha-pre">{bp.rawYaml.slice(0, 6000)}{bp.rawYaml.length > 6000 ? '\n… (truncated — see GitHub for full file)' : ''}</pre>
+      </div>
+    </div>
+  </div>
+</HABase>

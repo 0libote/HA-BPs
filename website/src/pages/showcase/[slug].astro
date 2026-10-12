@@ -1,0 +1,35 @@
+---
+import HABase from '../../layouts/HABase.astro';
+import ShowcaseEditor from '../../components/ha/ShowcaseEditor';
+import { blueprints, getBlueprint } from '../../lib/blueprints';
+
+export function getStaticPaths() {
+  return blueprints.map((b) => ({ params: { slug: b.slug } }));
+}
+
+const { slug } = Astro.params;
+const bp = getBlueprint(slug ?? '');
+if (!bp) throw new Error(`Unknown blueprint: ${slug}`);
+---
+<HABase
+  title={`${bp.name} — showcase`}
+  active="showcase"
+  crumbs={`Showcase / ${bp.file}`}
+  heading={bp.name}
+>
+  <div class="toc">
+    <a class="pill" href="/showcase">← All blueprints</a>
+    <a class="pill" href={`/docs/${bp.slug}`}>Docs for this blueprint</a>
+    <a class="pill blue" href={bp.importUrl} target="_blank" rel="noreferrer">Import in HA ↗</a>
+  </div>
+  <ShowcaseEditor blueprint={bp} client:load />
+  <div class="ha-card" style="margin-top: 16px;">
+    <b>About this replica</b>
+    <p class="small muted">
+      Sections default {bp.sections.filter((s) => !s.collapsed).length} open / {bp.sections.filter((s) => s.collapsed).length} collapsed —
+      exactly as declared in <code class="inline">{bp.file}</code>. Entity pickers only list domains the
+      blueprint's filter allows. Colour lists support add / rename / recolour / reorder / remove.
+      YAML on the right is what HA would store for the automation using this blueprint.
+    </p>
+  </div>
+</HABase>

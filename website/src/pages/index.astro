@@ -1,0 +1,80 @@
+---
+import HABase from '../layouts/HABase.astro';
+import { blueprints, shortBlurb } from '../lib/blueprints';
+---
+<HABase title="0libote HA Blueprints — Matter-first automations" active="home" heading="Blueprints that behave">
+  <div class="hero">
+    <span class="pill blue">HOME ASSISTANT 2025.7+ · MIT · MATTER-FIRST</span>
+    <h2>Practical blueprints for <em>IKEA Matter devices</em> — and the safety nets around them.</h2>
+    <p class="lead">
+      Four tested automation blueprints: a multi-speaker doorbell announcer, the BILRESA scroll-wheel
+      light controller, MYGGSPRAY motion lighting with profile memory, and a passive
+      "forgot to turn off" safety net. Try every config live in the showcase — a 1:1 interactive
+      replica of HA's blueprint editor with mock entities.
+    </p>
+    <div class="hero-cta">
+      <a class="ha-btn" href="/showcase">Open live showcase</a>
+      <a class="ha-btn ghost" href="/docs">Read the docs</a>
+      <a class="ha-btn subtle" href="https://github.com/0libote/HA-BPs" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+    <div class="hero-stats">
+      <div><b>{blueprints.length}</b><span>blueprints</span></div>
+      <div><b>{blueprints.reduce((n, b) => n + b.fieldCount, 0)}</b><span>configurable inputs</span></div>
+      <div><b>100%</b><span>YAML-tested in CI</span></div>
+      <div><b>MIT</b><span>licence</span></div>
+    </div>
+  </div>
+
+  <h3 class="section-title">Blueprints</h3>
+  <p class="section-sub">One-click import into your own HA instance. Or open the showcase to configure with mock entities first.</p>
+  <div class="ha-grid2">
+    {blueprints.map((b) => (
+      <div class="ha-card bp-card">
+        <div><span class="pill blue">{b.domain}</span> <span class="pill">{b.fieldCount} inputs</span></div>
+        <h3>{b.name}</h3>
+        <p>{shortBlurb[b.slug] ?? b.description.split('\n')[0]}</p>
+        <div class="row">
+          <a class="ha-btn" href={b.importUrl} target="_blank" rel="noreferrer">Import ↗</a>
+          <a class="ha-btn subtle" href={`/showcase/${b.slug}`}>Showcase</a>
+          <a class="ha-btn ghost" href={`/docs/${b.slug}`}>Docs</a>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <h3 class="section-title">How it works</h3>
+  <p class="section-sub">Same flow for every blueprint — the site mirrors HA so there are no surprises.</p>
+  <div class="steps">
+    <div class="ha-card step"><b class="n">1</b><br /><b>Import the blueprint</b><p class="muted small">Use the Import button (My Home Assistant) or paste the manual URL. Requires HA 2025.7+.</p></div>
+    <div class="ha-card step"><b class="n">2</b><br /><b>Create automation</b><p class="muted small">Settings → Automations & scenes → Blueprints → Create automation. Pick your real entities.</p></div>
+    <div class="ha-card step"><b class="n">3</b><br /><b>Test, then trust</b><p class="muted small">Try the showcase first with mock entities, then test in a non-critical room with a short timeout.</p></div>
+  </div>
+
+  <h3 class="section-title">Why these exist</h3>
+  <div class="ha-grid3">
+    <div class="ha-card"><b>🎛️ Matter-first</b><p class="muted small">BILRESA wheel bursts, MYGGSPRAY occupancy + lux quirks and stale-event protection are handled, not ignored.</p></div>
+    <div class="ha-card"><b>🛡️ Safe by default</b><p class="muted small">Faults block switch-off, manual OFF releases sessions, countdowns restart after reboot. No dead-room surprises.</p></div>
+    <div class="ha-card"><b>🧪 Tested in CI</b><p class="muted small">Every push lints YAML, checks !input wiring and validates against real Home Assistant stable in Docker.</p></div>
+  </div>
+
+  <h3 class="section-title">Docs & support</h3>
+  <div class="ha-grid2">
+    <div class="ha-card">
+      <b>Manual install path</b>
+      <p class="small muted">If URL import is unavailable, drop the YAML into <code class="inline">/config/blueprints/automation/0libote/</code>, reload automations, then create the automation from the blueprint.</p>
+      <a class="ha-btn ghost" href="/docs">Setup guide</a>
+    </div>
+    <div class="ha-card">
+      <b>Something wrong?</b>
+      <p class="small muted">Open an issue with the blueprint name, HA version, how the device is connected, and a trace/log (secrets removed).</p>
+      <a class="ha-btn ghost" href="https://github.com/0libote/HA-BPs/issues/new" target="_blank" rel="noreferrer">Open an issue ↗</a>
+    </div>
+  </div>
+
+  <div class="faq" style="margin-top: 26px;">
+    <h3 class="section-title">FAQ</h3>
+    <details><summary>Is the showcase connected to my home?</summary><p class="small muted">No. It is a static replica with mock entities (living-room speaker, hallway motion…). Nothing leaves your browser until you press Import.</p></details>
+    <details><summary>Will the showcase stay in sync with the blueprints?</summary><p class="small muted">Yes — sections, fields, defaults and selector configs are generated from the YAML at build time. Docs mix generated references with hand-written guides.</p></details>
+    <details><summary>Where do I deploy this site?</summary><p class="small muted">Cloudflare Pages: build <code class="inline">bun run build</code>, output <code class="inline">dist</code>. No server or adapter needed.</p></details>
+  </div>
+</HABase>

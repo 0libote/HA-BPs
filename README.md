@@ -25,6 +25,13 @@ for prerequisites, manual installation and troubleshooting.
 - **Blueprints:** open **Settings > Automations & scenes > Blueprints**, use the
   three-dot menu beside a blueprint and select **Re-import blueprint**.
 
+## Website
+
+Interactive landing page, docs and a 1:1 showcase of every blueprint config
+lives in [`website/`](website/) (Astro + Bun + React islands, HA-dark UI).
+`bun run data:build` regenerates the showcase from `blueprints/*.yaml`, and
+`bun run build` outputs static `dist/` for Cloudflare Pages.
+
 ## Support
 
 [Open an issue](https://github.com/0libote/HA-BPs/issues/new) with the affected
