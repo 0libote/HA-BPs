@@ -40,10 +40,29 @@ export const blueprints: Blueprint[] = (data as any).blueprints;
 export const getBlueprint = (slug: string) => blueprints.find((b) => b.slug === slug);
 
 export const shortBlurb: Record<string, string> = {
-  'doorbell-announcement': 'Doorbell press → multi-speaker TTS with volume + cleanup.',
-  'bilresa-scroll-wheel': 'BILRESA wheel: 3 light presets, dimming, colour cycling.',
-  'myggspray-auto-lights': 'Motion + lux lighting with profile memory + safe cleanup.',
-  'forgot-to-turn-off': 'Passive safety net: lights off after presence stays clear.',
+  'doorbell-announcement':
+    'A doorbell press announced on every chosen speaker through TTS, with per-announcement volume and a cleanup pass afterwards. One failing speaker does not stop the rest.',
+  'bilresa-scroll-wheel':
+    'Three presets sharing one wheel feel: fast spins apply as a single jump from Matter press counts, scrolling right wakes lights at minimum, centre tap cycles colours and hold toggles power.',
+  'myggspray-auto-lights':
+    'Motion lighting with separately selected lux sensing. Brightness and colour go out in one call, the previous light profile is remembered and restored before switch-off.',
+  'forgot-to-turn-off':
+    'Never turns anything on. Switches lights off only after every selected sensor stays clear for the full delay; unknown or unavailable sensors block switch-off instead of causing it.',
+};
+
+export const bpNeeds: Record<string, string> = {
+  'doorbell-announcement': 'doorbell binary sensor · TTS entity · media players',
+  'bilresa-scroll-wheel': 'BILRESA via Matter · 9 event entities · lights',
+  'myggspray-auto-lights': 'motion sensor · illuminance sensor · lights',
+  'forgot-to-turn-off': 'motion / occupancy sensors · lights',
+};
+
+/** Registry-row icon per blueprint. */
+export const bpIcon: Record<string, string> = {
+  'doorbell-announcement': 'bell',
+  'bilresa-scroll-wheel': 'dial',
+  'myggspray-auto-lights': 'activity',
+  'forgot-to-turn-off': 'bulbOff',
 };
 
 export function defaultValueFor(field: BpField): any {

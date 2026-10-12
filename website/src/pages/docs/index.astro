@@ -1,33 +1,41 @@
 ---
 import HABase from '../../layouts/HABase.astro';
-import { blueprints } from '../../lib/blueprints';
+import Icon from '../../components/Icon.astro';
+import { blueprints, shortBlurb, bpNeeds, bpIcon } from '../../lib/blueprints';
 ---
-<HABase title="Docs — setup, reference, troubleshooting" active="docs" crumbs="Docs · guides + generated reference" heading="Docs">
-  <p class="section-sub" style="max-width: 740px;">
-    Mix of hand-written guides and auto-generated reference. The per-blueprint pages combine the
-    setup guide, full input tables (defaults + selector types straight from YAML), troubleshooting
-    and the raw source — so docs can't drift from the blueprints.
-  </p>
-  <div class="ha-card" style="margin-bottom: 14px;">
-    <b>Setup — all blueprints (HA 2025.7+)</b>
-    <div class="steps" style="margin-top: 10px;">
-      <div class="step"><b class="n">1</b><br /><b>Import</b><p class="small muted">Press Import (My Home Assistant) or paste the manual URL from the blueprint's docs page.</p></div>
-      <div class="step"><b class="n">2</b><br /><b>Create automation</b><p class="small muted">Settings → Automations & scenes → Blueprints → Create automation, pick entities.</p></div>
-      <div class="step"><b class="n">3</b><br /><b>Reload & test</b><p class="small muted">Reload automations after updates (three-dot menu → Re-import). Test in a safe room first.</p></div>
-    </div>
-    <p class="small muted">Manual path: <code class="inline">/config/blueprints/automation/0libote/</code> — keep the same filename on updates.</p>
+<HABase title="Docs — blueprint setup guides and references" active="docs">
+  <div class="masthead">
+    <p class="kicker">Docs</p>
+    <h1>Setup guides and references.</h1>
+    <p class="lede">
+      Each page pairs a setup guide with an input reference generated from the blueprint
+      YAML — every field, default and selector type — plus troubleshooting and the source.
+    </p>
   </div>
-  <div class="ha-grid2">
+
+  <div class="bp-list">
     {blueprints.map((b) => (
-      <div class="ha-card bp-card">
-        <div><span class="pill blue">{b.sections.length} sections</span> <span class="pill">{b.fieldCount} inputs</span></div>
-        <h3>{b.name}</h3>
-        <p class="small muted">{b.description.split('\n')[0].slice(0, 140)}</p>
-        <div class="row">
-          <a class="ha-btn" href={`/docs/${b.slug}`}>Open docs</a>
-          <a class="ha-btn subtle" href={`/showcase/${b.slug}`}>Showcase</a>
+      <article class="bp-row">
+        <div class="ric"><Icon name={bpIcon[b.slug] ?? 'book'} size={20} /></div>
+        <div>
+          <h2 class="bp-name"><a href={`/docs/${b.slug}`}>{b.name}</a></h2>
+          <p class="bp-desc">{shortBlurb[b.slug] ?? ''}</p>
+          <p class="bp-needs">Needs: {bpNeeds[b.slug] ?? b.domain}</p>
+          <div class="bp-links">
+            <a href={`/docs/${b.slug}`}>Read the guide</a>
+            <a href={`/showcase/${b.slug}`}>Showcase</a>
+          </div>
         </div>
-      </div>
+      </article>
     ))}
+  </div>
+
+  <h2 class="h-sec">Manual install</h2>
+  <div class="prose">
+    <p>
+      If URL import is unavailable, download the YAML into
+      <code class="inline">/config/blueprints/automation/0libote/</code>,
+      reload automations, then create the automation from the installed blueprint.
+    </p>
   </div>
 </HABase>

@@ -1,34 +1,40 @@
 ---
 import HABase from '../../layouts/HABase.astro';
-import { blueprints, shortBlurb } from '../../lib/blueprints';
+import Icon from '../../components/Icon.astro';
+import { blueprints, shortBlurb, bpIcon } from '../../lib/blueprints';
 ---
-<HABase title="Showcase — 1:1 HA config replica" active="showcase" crumbs="Showcase · interactive HA editor replica" heading="Showcase">
-  <p class="section-sub" style="max-width: 720px;">
-    Every blueprint below renders the same sections, fields, defaults and selector types as Home
-    Assistant's blueprint editor — entity pickers, sliders, toggles, duration, colour lists and all.
-    Configure with mock entities, watch the automation YAML update live, then import for real.
-  </p>
-  <div class="ha-grid2">
-    {blueprints.map((b) => (
-      <div class="ha-card bp-card">
-        <div><span class="pill blue">{b.sections.length} sections</span> <span class="pill">{b.fieldCount} inputs</span></div>
-        <h3>{b.name}</h3>
-        <p>{shortBlurb[b.slug] ?? ''}</p>
-        <div class="row">
-          <a class="ha-btn" href={`/showcase/${b.slug}`}>Open replica</a>
-          <a class="ha-btn ghost" href={`/docs/${b.slug}`}>Docs</a>
-        </div>
-        <div class="small muted">{b.sections.map((s) => s.name).join(' · ')}</div>
-      </div>
-    ))}
-  </div>
-  <div class="ha-card" style="margin-top: 16px;">
-    <b>How fidelity is guaranteed</b>
-    <p class="small muted">
-      <code class="inline">bun run data:build</code> parses <code class="inline">blueprints/*.yaml</code> into
-      sections → fields → selectors (entity, number, text, boolean, duration, select, condition, action,
-      color_rgb, color_temp, object). The React editor renders each selector the way HA does.
-      Collapsed sections default exactly as the YAML declares. If the YAML changes, the showcase changes.
+<HABase title="Showcase — try every blueprint setting" active="showcase" wide>
+  <div class="masthead">
+    <p class="kicker">Showcase</p>
+    <h1>Try before you import.</h1>
+    <p class="lede">
+      Each showcase is a working copy of HA's blueprint editor for that blueprint —
+      the same sections, fields, defaults and selector types, running on mock entities.
+      Configure, watch the automation YAML update, then import for real.
     </p>
   </div>
+
+  <div class="bp-list">
+    {blueprints.map((b) => (
+      <article class="bp-row">
+        <div class="ric"><Icon name={bpIcon[b.slug] ?? 'sliders'} size={20} /></div>
+        <div>
+          <h2 class="bp-name"><a href={`/showcase/${b.slug}`}>{b.name}</a></h2>
+          <p class="bp-desc">{shortBlurb[b.slug] ?? ''}</p>
+          <p class="bp-needs">{b.sections.map((s) => s.name).join(' · ')}</p>
+          <div class="bp-links">
+            <a href={`/showcase/${b.slug}`}>Open showcase</a>
+            <a href={`/docs/${b.slug}`}>Docs</a>
+          </div>
+        </div>
+      </article>
+    ))}
+  </div>
+
+  <p class="footnote">
+    The replica is generated from the blueprint YAML at build time
+    (<span class="mono">bun run data:build</span> parses sections, fields, defaults and selector
+    configs), so it cannot drift from the real editor. Collapsed sections, domain filters
+    and colour lists all match. Nothing here controls a real home.
+  </p>
 </HABase>

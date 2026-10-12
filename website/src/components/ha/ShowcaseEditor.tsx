@@ -6,24 +6,8 @@ import {
   initialValues,
 } from '../../lib/blueprints';
 import { filterEntities, rgbToCss, rgbToHex, hexToRgb } from './mockEntities';
-
-export function iconFor(mdi: string): string {
-  const m: Record<string, string> = {
-    'mdi:doorbell': '🔔',
-    'mdi:account-voice': '🔊',
-    'mdi:volume-minus': '🔉',
-    'mdi:remote': '🎛️',
-    'mdi:lightbulb-group': '💡',
-    'mdi:lightbulb-group-off-outline': '💡',
-    'mdi:tune': '🎚️',
-    'mdi:palette': '🎨',
-    'mdi:motion-sensor': '🚶',
-    'mdi:timer-outline': '⏱️',
-    'mdi:shield-check-outline': '🛡️',
-    'mdi:cog': '⚙️',
-  };
-  return m[mdi] ?? '⚙️';
-}
+import { Icon } from './Icon';
+import { mdiIcon } from '../icons';
 
 /* ---------------- field widgets ---------------- */
 
@@ -53,13 +37,13 @@ function EntityPicker({ field, value, onChange }: { field: BpField; value: any; 
           <span className="ha-chip" key={id}>
             <span className="dot" />
             <code>{id}</code>
-            <button onClick={() => toggle(id)} aria-label={`Remove ${id}`}>×</button>
+            <button onClick={() => toggle(id)} aria-label={`Remove ${id}`}><Icon name="x" size={12} /></button>
           </span>
         ))}
         {selected.length === 0 && <span className="small muted">No entity selected — pick below, like in HA.</span>}
       </div>
       <div className="ha-search">
-        <span className="muted">⌕</span>
+        <Icon name="search" size={14} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${options.length} matching entities…`} />
       </div>
       <div className="ha-entity-list">
@@ -74,7 +58,7 @@ function EntityPicker({ field, value, onChange }: { field: BpField; value: any; 
               {e.friendly}
               <small>{e.entity_id} · {e.state}</small>
             </span>
-            <span style={{ marginLeft: 'auto' }}>{selected.includes(e.entity_id) ? '✓' : ''}</span>
+            <span style={{ marginLeft: 'auto' }}>{selected.includes(e.entity_id) ? <span className="tick"><Icon name="check" size={14} /></span> : null}</span>
           </button>
         ))}
         {filtered.length === 0 && <div className="small muted" style={{ padding: 8 }}>No matches.</div>}
@@ -169,7 +153,7 @@ function ConditionActionField({ kind, value, onChange }: { kind: string; value: 
           ))}
         </div>
       )}
-      <button className="ha-btn subtle" onClick={add}>+ Add {kind}</button>
+      <button className="ha-btn subtle" onClick={add}><span style={{ display: 'inline-flex' }}><Icon name="plus" size={14} /></span> Add {kind}</button>
     </div>
   );
 }
@@ -224,9 +208,9 @@ function ObjectListField({ field, value, onChange }: { field: BpField; value: an
             <span className="grip">⋮⋮</span>
             <span className="mini-dot" style={{ background: rgbToCss(item?.colour) }} />
             <b>{item?.name || `Colour ${i + 1}`}</b>
-            <button className="ha-btn subtle" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => move(i, -1)}>↑</button>
-            <button className="ha-btn subtle" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => move(i, 1)}>↓</button>
-            <button className="ha-btn subtle" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => onChange(arr.filter((_, j) => j !== i))}>✕</button>
+            <button className="mini-btn" aria-label="Move up" onClick={() => move(i, -1)}><Icon name="chevUp" size={14} /></button>
+            <button className="mini-btn" aria-label="Move down" onClick={() => move(i, 1)}><Icon name="chevDown" size={14} /></button>
+            <button className="mini-btn" aria-label="Remove" onClick={() => onChange(arr.filter((_, j) => j !== i))}><Icon name="x" size={14} /></button>
           </div>
           <div className="ha-obj-body">
             <div>
@@ -251,7 +235,7 @@ function ObjectListField({ field, value, onChange }: { field: BpField; value: an
         className="ha-add-btn"
         onClick={() => onChange([...arr, { name: `Colour ${arr.length + 1}`, colour: [255, 214, 170] }])}
       >
-        + Add colour
+        <Icon name="plus" size={14} /> Add colour
       </button>
     </div>
   );
@@ -305,11 +289,8 @@ export default function ShowcaseEditor({ blueprint }: { blueprint: Blueprint }) 
     <div>
       <div className="ha-editor-top">
         <div className="title-block">
-          <span className="pill blue">BLUEPRINT · {blueprint.domain}</span>{' '}
-          <span className="pill">HA {blueprint.min_version}+</span>{' '}
-          <span className="pill green">{blueprint.fieldCount} inputs</span>
-          <h2 style={{ marginTop: 8 }}>{blueprint.name}</h2>
-          <div className="small muted">Mock entities only — nothing here controls a real home. Import into HA for real devices.</div>
+          <p className="meta-line" style={{ margin: 0 }}>{blueprint.domain} · HA {blueprint.min_version}+ · {blueprint.fieldCount} inputs</p>
+          <div className="small muted" style={{ marginTop: 6 }}>Mock entities only — nothing here controls a real home. Import into HA for real devices.</div>
           <input className="ha-automation-name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Automation name" />
         </div>
         <div className="ha-toolbar">
@@ -318,9 +299,9 @@ export default function ShowcaseEditor({ blueprint }: { blueprint: Blueprint }) 
             className="ha-btn subtle"
             onClick={() => { navigator.clipboard?.writeText(yaml); setCopied(true); setTimeout(() => setCopied(false), 1600); }}
           >
-            {copied ? 'Copied ✓' : 'Copy YAML'}
+            {copied ? 'Copied' : 'Copy YAML'}
           </button>
-          <a className="ha-btn" href={blueprint.importUrl} target="_blank" rel="noreferrer">Import in HA ↗</a>
+          <a className="ha-btn" href={blueprint.importUrl} target="_blank" rel="noreferrer">Import in HA</a>
         </div>
       </div>
 
@@ -329,12 +310,12 @@ export default function ShowcaseEditor({ blueprint }: { blueprint: Blueprint }) 
           {blueprint.sections.map((s) => (
             <div className={'ha-section' + (open[s.key] ? ' open' : '')} key={s.key}>
               <button className="ha-section-head" onClick={() => setOpen((o) => ({ ...o, [s.key]: !o[s.key] }))}>
-                <span className="ha-sec-ico">{iconFor(s.icon)}</span>
+                <span className="ha-sec-ico"><Icon name={mdiIcon[s.icon] ?? 'sliders'} size={19} /></span>
                 <span className="t">
                   <b>{s.name}</b>
                   {s.description && <span>{s.description.split('\n')[0].slice(0, 120)}</span>}
                 </span>
-                <span className="ha-chev">▾</span>
+                <span className="ha-chev"><Icon name="chevDown" size={18} /></span>
               </button>
               {open[s.key] && (
                 <div className="ha-section-body">
@@ -357,7 +338,7 @@ export default function ShowcaseEditor({ blueprint }: { blueprint: Blueprint }) 
             <p className="small muted">Updates as you configure, like HA's YAML view. Paste into an automation using this blueprint.</p>
             <pre className="ha-pre">{yaml}</pre>
             <div className="ha-toolbar" style={{ marginTop: 10 }}>
-              <a className="ha-btn ghost" href={blueprint.githubUrl} target="_blank" rel="noreferrer">View source YAML</a>
+              <a className="ha-btn subtle" href={blueprint.githubUrl} target="_blank" rel="noreferrer">View source YAML</a>
             </div>
           </div>
         </div>

@@ -1,14 +1,14 @@
 ---
+import Icon from '../components/Icon.astro';
 import '../styles/ha.css';
 
 interface Props {
   title: string;
-  crumbs?: string;
-  heading?: string;
-  active?: 'home' | 'docs' | 'showcase';
+  active?: 'blueprints' | 'docs' | 'showcase';
+  wide?: boolean;
 }
 
-const { title, crumbs = '0libote · Home Assistant Blueprints', heading, active = 'home' } = Astro.props;
+const { title, active, wide = false } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -16,46 +16,31 @@ const { title, crumbs = '0libote · Home Assistant Blueprints', heading, active 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
-    <meta name="description" content="Practical Home Assistant blueprints for IKEA Matter devices — with live 1:1 config showcase, docs and one-click import." />
+    <meta name="description" content="Home Assistant blueprints for IKEA Matter devices. Import, read the docs, or try every setting in a working replica of HA's editor." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
-    <div class="ha-app">
-      <aside class="ha-sidebar">
-        <div class="ha-brand">
-          <div class="ha-logo">⌂</div>
-          <div><b>0libote BPs</b><span>HA blueprints · Matter-first</span></div>
-        </div>
-        <nav class="ha-nav">
-          <a href="/" class={active === 'home' ? 'active' : ''}><span class="ico">◈</span> Overview</a>
-          <a href="/showcase" class={active === 'showcase' ? 'active' : ''}><span class="ico">◫</span> Showcase</a>
-          <a href="/docs" class={active === 'docs' ? 'active' : ''}><span class="ico">▤</span> Docs</a>
-          <a href="https://github.com/0libote/HA-BPs" target="_blank" rel="noreferrer"><span class="ico">♡</span> GitHub</a>
+    <header class="site-header">
+      <div class="bar">
+        <a class="wordmark" href="/">
+          <span class="mark"><Icon name="home" size={15} sw={2.2} /></span>
+          0libote <small>/ blueprints</small>
+        </a>
+        <nav class="site-nav">
+          <a href="/" class={active === 'blueprints' ? 'active' : ''}>Blueprints</a>
+          <a href="/showcase" class={active === 'showcase' ? 'active' : ''}>Showcase</a>
+          <a href="/docs" class={active === 'docs' ? 'active' : ''}>Docs</a>
+          <a href="https://github.com/0libote/HA-BPs" target="_blank" rel="noreferrer">GitHub <Icon name="arrowUpRight" size={13} /></a>
         </nav>
-        <div class="ha-side-foot">
-          HA 2025.7+ · MIT licence<br />Deploys on Cloudflare Pages
-        </div>
-      </aside>
-      <div class="ha-main">
-        <div class="ha-topbar">
-          <div>
-            <div class="crumbs">{crumbs}</div>
-            {heading && <h1>{heading}</h1>}
-          </div>
-          <div class="spacer"></div>
-          <a class="ha-btn ghost" href="/showcase">Try showcase</a>
-          <a class="ha-btn" href="/docs">Docs</a>
-        </div>
-        <div class="ha-content">
-          <slot />
-          <div class="footer">
-            <span>0libote HA-BPs · MIT</span>
-            <a href="https://github.com/0libote/HA-BPs">GitHub</a>
-            <a href="https://www.home-assistant.io/" target="_blank" rel="noreferrer">Home Assistant</a>
-            <span>Showcase is a replica with mock entities — import into HA for real devices.</span>
-          </div>
-        </div>
       </div>
-    </div>
+    </header>
+    <main class={`wrap${wide ? ' wide' : ''}`}>
+      <slot />
+      <footer class="site-footer">
+        <span>0libote HA-BPs · MIT licence</span>
+        <span class="spacer"></span>
+        <span>Requires Home Assistant 2025.7+ · showcase runs on mock entities</span>
+      </footer>
+    </main>
   </body>
 </html>
