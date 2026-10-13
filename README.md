@@ -20,6 +20,10 @@ Importing adds the reusable blueprint to Home Assistant. Afterwards, open
 and choose the entities for your home. See the [blueprint setup guide](blueprints/README.md)
 for prerequisites, manual installation and troubleshooting.
 
+See [how the blueprints work together](blueprints/README.md#using-the-blueprints-together)
+and the [engineering review](docs/automation-review.md) for reliability decisions,
+upgrade notes and remaining device-dependent limits.
+
 ## Updating
 
 - **Blueprints:** open **Settings > Automations & scenes > Blueprints**, use the

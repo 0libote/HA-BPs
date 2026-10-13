@@ -8,7 +8,8 @@
     "build": "bun run data:build && astro build",
     "preview": "astro preview",
     "data:build": "bun scripts/parse-blueprints.ts",
-    "check": "astro check"
+    "check": "astro check",
+    "test": "bun test ./scripts/blueprints.test.ts"
   },
   "dependencies": {
     "astro": "^5.13.0",

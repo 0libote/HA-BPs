@@ -34,15 +34,49 @@ jobs:
         run: python -m pytest -q
 
   home-assistant:
-    name: Home Assistant schema validation
+    name: Home Assistant ${{ matrix.version }} validation and regressions
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["2025.7.4", "stable"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate all blueprints with Home Assistant stable
+      - name: Validate expanded automations
         shell: bash
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/repo:ro" \
-            ghcr.io/home-assistant/home-assistant:stable \
+            ghcr.io/home-assistant/home-assistant:${{ matrix.version }} \
             python /repo/tests/validate_with_homeassistant.py
+
+      - name: Exercise runtime regression scenarios
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo:ro" \
+            ghcr.io/home-assistant/home-assistant:${{ matrix.version }} \
+            python /repo/tests/exercise_with_homeassistant.py
+
+      - name: Exercise delayed responses and interleaved actions
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo:ro" \
+            ghcr.io/home-assistant/home-assistant:${{ matrix.version }} \
+            python /repo/tests/exercise_async_with_homeassistant.py
+
+  website:
+    name: Website catalogue, exports and build
+    runs-on: ubuntu-latest
+    container: oven/bun:1.4.2-slim
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - run: bun install --frozen-lockfile
+      - run: bun run data:build
+      - run: bun run test
+      - run: bun run build

@@ -16,31 +16,44 @@ https://github.com/0libote/HA-BPs/blob/main/blueprints/doorbell-announcement.yam
 ```
 
 This blueprint announces a press from any selected doorbell binary sensor on
-one or more media players. The TTS entity, message, announcement volume, cleanup
-delay and volume afterwards are configurable. Optional conditions can suppress
+one or more media players. Binary doorbell sensors and doorbell event entities
+are supported. The TTS entity, message, announcement volume, bounded playback
+wait and fallback volume are configurable. Optional conditions can suppress
 announcements, and optional extra actions can add notifications or light effects.
 
 ### Configure
 
 1. Import the blueprint and select **Create automation**.
-2. Select the doorbell binary sensor or sensors.
+2. Select doorbell binary sensors, doorbell event entities, or both.
 3. Select a `tts` entity and the media players that should announce the press.
-4. Set the message, volumes and cleanup delay.
+4. Set the message, announcement volume and maximum playback wait. Previous
+   speaker volumes are restored by default; the fallback is used if unavailable.
 5. Optionally add conditions or extra actions, then save and test.
 
 The blueprint calls each speaker separately so an error from one speaker does
-not prevent the remaining speakers from being attempted. It ignores additional
-doorbell presses until the current cleanup delay has finished.
+not prevent the remaining speakers from being attempted. It waits for every
+speaker to report new playback, including a fast speaker that has already
+finished. If startup is not acknowledged within **Speaker Startup Wait**, it
+keeps announcement volume for the full cleanup delay. A volume-only state
+update does not count as playback starting. It ignores additional
+doorbell presses until the current run, including extra actions, finishes. An available TTS
+engine reporting `unknown` before first use is supported. If the engine is
+missing or unavailable, speaker volumes are left alone and **Extra Actions**
+still run, so notification fallbacks can remain useful. A zero cleanup delay
+means almost immediate cleanup; it does not create an unlimited playback wait.
 
 ### Troubleshooting
 
 - No announcement: confirm the doorbell entity changes to `on`, and test the
   selected `tts` entity with the speaker in **Developer tools > Actions**.
-- Message is cut off: increase **Delay Before Cleanup** or disable **Stop
-  Playback After Announcement**.
-- Wrong volume afterwards: change **Volume After Announcement**. This mirrors
-  the original automation's fixed post-announcement volume rather than trying
-  to resume each speaker's earlier media session.
+- Message is cut off: increase **Delay Before Cleanup** and leave **Stop
+  Playback After Announcement** disabled. Playback state reporting depends on
+  the speaker integration; configure **Speaker Startup Wait** for slow players.
+- Wrong volume afterwards: check **Restore Previous Volume** and the fallback
+  **Volume After Announcement**. A deliberate volume change during playback is
+  left alone. Restoring volume does not generically resume an earlier media session.
+- Repeated rings during a run are ignored. A restart/reload interrupts cleanup;
+  Home Assistant cannot guarantee volume restoration across that interruption.
 
 [View the YAML](doorbell-announcement.yaml)
 
@@ -72,7 +85,9 @@ configuring Preset 1 only.
 ### Configure
 
 1. Import the blueprint and select **Create automation**.
-2. In **Remote buttons**, select the 9 event entities, three per preset.
+2. In **Remote buttons**, select the event entities, three per used preset.
+   Leave unused slots empty; each slot can accept matching entities from
+   multiple remotes. Existing single-entity selections remain supported.
 3. In **Lights and presets**, select Preset 1 lights. Keep Presets 2 and 3
    duplicating Preset 1, or switch them to custom lights or disabled.
 4. In **Wheel and centre button**, set the shared brightness step, limits,
@@ -80,11 +95,17 @@ configuring Preset 1 only.
 5. In **Colours**, order Preset 1 colours. Add custom lists for Presets 2 and
    3 only when they use custom profiles.
 6. Save the automation and test tap, hold and both wheel directions.
+   **Device Response Wait** bounds acknowledgement between queued gestures;
+   increase it if your lights report state slowly.
 
-Scrolling right while a preset's lights are off turns them on at the minimum
-brightness. Colour while off turns them on with the first colour.
+Scrolling right while a preset's lights are off turns them on at the lower
+brightness bound. On/off-only lights are switched on without dimming fields.
+Colour while off turns RGB-capable lights on with the first colour; white-only
+lights are left alone. Power still controls every available preset light.
 
-Fast wheel movement uses Matter's `totalNumberOfPressesCounted` value. If the
+Fast wheel movement uses Matter's `totalNumberOfPressesCounted` value, with
+the completed `multi_press_N` event type as a fallback when the count attribute
+is absent. If the
 device itself aborts an over-limit multi-press and publishes no completed event,
 Home Assistant has no movement for the blueprint to recover.
 
@@ -98,7 +119,8 @@ Wheel and Colour settings. Re-check those once after updating.
 - Wrong direction or button: re-check the three event entities selected for that
   preset.
 - Centre button does nothing: check the shared centre-button layout. Tap and
-  hold are matched permissively across Matter tap/hold event names.
+  hold use completed gestures: `multi_press_N` and `long_release` for Matter.
+  Initial presses, long-press starts and intermediate multi-press events are ignored.
 - Unexpected brightness: check the shared minimum, maximum and per-detent
   step before changing the automation logic.
 
@@ -119,8 +141,9 @@ detector reports activity, at least one selected illuminance sensor says the
 room is dark enough, and every selected light is off and available. Motion-only
 detectors are supported because the illuminance entities are selected
 separately. It can remember the latest normal light profile, restore it before
-switch-off and clean up after manual changes, unavailable entities or an
-overlong session.
+switch-off and release control after manual changes, unavailable entities or an
+overlong session. Faults leave remaining lights on. The default maximum-runtime
+policy also leaves lights on; forced OFF is an explicit option.
 
 ### Before you start
 
@@ -135,13 +158,30 @@ overlong session.
 2. Select one or more motion/occupancy sensors, one or more illuminance sensors,
    and the target lights.
 3. Choose the lux threshold, automation brightness and optional colour.
-4. Set the clear delay and maximum session runtime.
+4. Set the clear delay, maximum session runtime and the runtime-limit policy.
 5. Optionally add activation conditions, then save and test in a non-critical
    room first.
 
 The remembered profiles use temporary dynamic scenes. A Home Assistant restart
 or scene reload clears them; the blueprint learns them again the next time the
-lights are used normally.
+lights are used normally. Restoring an ON profile immediately before OFF may
+produce a visible flash on some bulbs; disable profile restoration if that matters.
+
+Active sessions are checked every ten seconds, so switch-off can occur up to ten
+seconds after the clear delay. There are no long-lived parallel session timers.
+After restart or automation reload the blueprint leaves lights alone and waits
+for fresh motion; it does not guess whether an existing ON light was manual.
+Activation waits up to five seconds for ON feedback. If it is interrupted or
+incomplete, control is released while remaining lights are left alone. A queued
+motion event is ignored if the room is already clear when it reaches the queue.
+
+When **Respect Manual Changes** is enabled, a user-context change releases control
+immediately. Relevant brightness/colour/effect changes without user context release
+control after a ten-second settling period. Physical changes during that period
+cannot reliably be distinguished from the bulb applying its automation command.
+Use the shared override helper below for deterministic remote priority. A
+manual takeover also learns the changed light's new profile from the event,
+so restoration does not return it to an older manual setting.
 
 ### Troubleshooting
 
@@ -179,7 +219,8 @@ another automation.
 3. Select the lights that may be switched off.
 4. Choose how long every sensor must remain clear, then save and test.
 
-The countdown restarts safely after Home Assistant starts or a selected light
+The single countdown restarts safely after Home Assistant starts, automations
+reload, or a selected light
 is turned on while the area is already clear. Unknown or unavailable sensors
 are treated as occupied so a sensor fault cannot cause an automatic switch-off.
 
@@ -192,6 +233,50 @@ are treated as occupied so a sensor fault cannot cause an automatic switch-off.
 - Test with a short timeout first, then restore the intended safety duration.
 
 [View the YAML](forgot-to-turn-off.yaml)
+
+## Using the blueprints together
+
+Use one motion-lighting automation per set of lights. BILRESA is the manual
+control, MYGGSPRAY owns only sessions it starts while all lights are off, and
+Forgot to Turn Off is the final passive safety net. Choose a safety timeout
+longer than the normal motion clear delay (for example, two minutes for motion
+and one hour for the safety net). Select the same presence sensors covering the
+room, and include any additional presence sensors needed for seated occupants.
+
+For reliable manual priority, create an **Input boolean / Toggle** helper such
+as `input_boolean.living_room_manual_lighting`. Select it in **Manual Override
+Helpers** in both BILRESA and MYGGSPRAY. A valid remote action sets it ON before
+changing lights, which releases motion ownership and blocks new motion sessions.
+Turn the helper OFF from a dashboard or your own room-reset automation to allow
+motion lighting again. Helpers that are missing or unavailable block motion activation. The remote
+also waits for its helpers to report ON before changing lights; failed helper
+acknowledgement blocks that gesture.
+The passive safety net still switches lights off after its full clear timeout;
+it does not reset the helper or change colours.
+
+Use doorbell **Extra Conditions** for quiet hours and **Extra Actions** for
+notifications or room effects. Route effects through your own script and choose
+whether they should set the room override helper. A long-running extra action
+keeps the doorbell automation busy and repeated rings are ignored until it ends.
+
+Every blueprint retains twenty traces for diagnosis. Individual device actions
+continue on error where cleanup or another device must still be attempted;
+errors remain visible in logs. No generic blueprint can guarantee device delivery,
+recover a Matter event the remote never sent, persist dynamic scenes across a
+restart, or restore arbitrary media sessions. See the
+[engineering review](../docs/automation-review.md) for decisions and verification.
+
+## Updating existing automations
+
+Existing input names are preserved. After re-importing, check the new defaults:
+previous speaker volumes are restored, forced media stop is disabled, and motion
+maximum runtime releases ownership rather than forcing lights OFF. Existing
+explicit values still apply. Motion clear cleanup has up to ten seconds of
+reconciliation latency. Remote holds now act once on release. Set the optional
+shared manual override in both blueprints if you want deterministic priority.
+Remote commands now wait for device feedback, and RGB gestures skip white-only
+bulbs. Manual **Run actions** on a remote or motion automation safely does
+nothing without a device trigger; test those blueprints with their actual devices.
 
 ## Manual installation
 

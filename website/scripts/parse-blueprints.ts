@@ -7,9 +7,9 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-const ROOT = join(import.meta.dir, '../..');
+const ROOT = join(import.meta.dirname, '../..');
 const BP_DIR = join(ROOT, 'blueprints');
-const OUT = join(import.meta.dir, '../src/data/blueprints.json');
+const OUT = join(import.meta.dirname, '../src/data/blueprints.json');
 const README_PATH = join(BP_DIR, 'README.md');
 
 type SelectorType =
@@ -36,12 +36,12 @@ function parseDocsMarkdown(md: string): Record<string, string> {
   const titles = [...md.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
   parts.slice(1).forEach((body, i) => {
     const title = titles[i];
-    chunks[title] = '## ' + title + '\n' + body.trim();
+    chunks[title] = '## ' + title + '\n' + body.slice(body.indexOf('\n') + 1).trim();
   });
   return chunks;
 }
 
-function titleToSlugFile(title: string, files: string[]): string | null {
+function titleToSlugFile(title: string): string | null {
   // Match docs heading to blueprint file via known mapping + fuzzy fallback.
   const lower = title.toLowerCase();
   if (lower.includes('doorbell')) return 'doorbell-announcement.yaml';
@@ -51,7 +51,7 @@ function titleToSlugFile(title: string, files: string[]): string | null {
   return null;
 }
 
-const files = readdirSync(BP_DIR).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
+const files = readdirSync(BP_DIR).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml')).sort();
 const readme = readFileSync(README_PATH, 'utf-8');
 const docsChunks = parseDocsMarkdown(readme);
 
@@ -118,8 +118,11 @@ const blueprints = files.map((file) => {
   // Find matching docs chunk
   let docsMarkdown = '';
   for (const [title, chunk] of Object.entries(docsChunks)) {
-    if (titleToSlugFile(title, files) === file) docsMarkdown = chunk;
+    if (titleToSlugFile(title) === file) docsMarkdown = chunk;
   }
+
+  docsMarkdown = docsMarkdown.replace(/\]\(([a-z0-9-]+\.ya?ml)\)/g,
+    (_, source) => `](https://github.com/0libote/HA-BPs/blob/main/blueprints/${source})`);
 
   return {
     slug,
@@ -140,7 +143,7 @@ const blueprints = files.map((file) => {
   };
 });
 
-mkdirSync(join(import.meta.dir, '../src/data'), { recursive: true });
+mkdirSync(join(import.meta.dirname, '../src/data'), { recursive: true });
 writeFileSync(OUT, JSON.stringify({ generated: new Date().toISOString(), blueprints }, null, 2));
 console.log(`Wrote ${blueprints.length} blueprints -> ${OUT}`);
 for (const b of blueprints) console.log(` - ${b.slug}: ${b.sections.length} sections, ${b.fieldCount} fields`);

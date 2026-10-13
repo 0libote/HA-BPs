@@ -11,9 +11,13 @@ export const MOCK_ENTITIES: MockEntity[] = [
   // doorbell
   { entity_id: 'binary_sensor.front_door_doorbell', friendly: 'Front Door Doorbell', domain: 'binary_sensor', state: 'off' },
   { entity_id: 'binary_sensor.back_door_doorbell', friendly: 'Back Door Doorbell', domain: 'binary_sensor', state: 'off' },
+  { entity_id: 'event.front_door_doorbell', friendly: 'Front Door Doorbell Event', domain: 'event', device_class: 'doorbell', state: 'unknown' },
+  // Shared room overrides
+  { entity_id: 'input_boolean.living_room_manual_lighting', friendly: 'Living Room Manual Lighting', domain: 'input_boolean', state: 'off' },
+  { entity_id: 'input_boolean.hallway_manual_lighting', friendly: 'Hallway Manual Lighting', domain: 'input_boolean', state: 'off' },
   // tts + speakers
-  { entity_id: 'tts.home_assistant_cloud', friendly: 'HA Cloud TTS', domain: 'tts', state: 'ready' },
-  { entity_id: 'tts.google_translate', friendly: 'Google Translate TTS', domain: 'tts', state: 'ready' },
+  { entity_id: 'tts.home_assistant_cloud', friendly: 'HA Cloud TTS', domain: 'tts', state: 'unknown' },
+  { entity_id: 'tts.google_translate', friendly: 'Google Translate TTS', domain: 'tts', state: 'unknown' },
   { entity_id: 'media_player.living_room_speaker', friendly: 'Living Room Speaker', domain: 'media_player', state: 'idle' },
   { entity_id: 'media_player.kitchen_speaker', friendly: 'Kitchen Speaker', domain: 'media_player', state: 'idle' },
   { entity_id: 'media_player.hallway_speaker', friendly: 'Hallway Speaker', domain: 'media_player', state: 'idle' },
@@ -23,7 +27,8 @@ export const MOCK_ENTITIES: MockEntity[] = [
       entity_id: `event.bilresa_preset_${preset}_button_${b}`,
       friendly: `BILRESA Preset ${preset} ${b === 1 ? 'Right' : b === 2 ? 'Left' : 'Centre'}`,
       domain: 'event',
-      state: 'idle',
+      device_class: 'button',
+      state: 'unknown',
     })),
   ),
   // lights

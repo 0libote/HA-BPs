@@ -90,33 +90,39 @@ variables:
   presence_sensors: !input presence_sensor
   target_lights: !input target_lights
 
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: !input presence_sensor
-    to: "off"
-    id: presence_cleared
+    to:
+    id: presence_changed
 
-  - platform: state
+  - trigger: state
     entity_id: !input target_lights
     to: "on"
     id: light_turned_on
 
-  - platform: homeassistant
+  - trigger: homeassistant
     event: start
     id: home_assistant_started
 
-condition: []
+  - trigger: event
+    event_type: automation_reloaded
+    id: automations_reloaded
 
-action:
+conditions: []
+
+actions:
   - condition: template
     value_template: >
-      {{ trigger.id in
-         ['presence_cleared', 'light_turned_on', 'home_assistant_started'] }}
+      {{ trigger is defined and trigger.id is defined and trigger.id in
+         ['presence_changed', 'light_turned_on', 'home_assistant_started',
+          'automations_reloaded'] }}
 
   - alias: Only start when every selected presence sensor is clear
     condition: template
     value_template: >
-      {{ (expand(presence_sensors) | list | count) > 0
+      {{ (presence_sensors | count) > 0
+         and (expand(presence_sensors) | list | count) == (presence_sensors | unique | list | count)
          and (expand(presence_sensors)
               | rejectattr('state', 'eq', 'off')
               | list
@@ -137,7 +143,8 @@ action:
   - alias: Every sensor must still be clear
     condition: template
     value_template: >
-      {{ (expand(presence_sensors) | list | count) > 0
+      {{ (presence_sensors | count) > 0
+         and (expand(presence_sensors) | list | count) == (presence_sensors | unique | list | count)
          and (expand(presence_sensors)
               | rejectattr('state', 'eq', 'off')
               | list
@@ -161,10 +168,26 @@ action:
            | list
            | count) > 0 }}
 
-  - action: light.turn_off
-    target:
-      entity_id: !input target_lights
+  - repeat:
+      for_each: "{{ expand(target_lights) | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}"
+      sequence:
+        - alias: Recheck occupancy immediately before each light
+          condition: template
+          value_template: >
+            {% set ns = namespace(parts=[]) %}
+            {% for sensor in expand(presence_sensors) | sort(attribute='entity_id') %}
+              {% set ns.parts = ns.parts + [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
+            {% endfor %}
+            {{ expand(presence_sensors) | count == presence_sensors | unique | list | count and
+               expand(presence_sensors) | rejectattr('state', 'eq', 'off') | list | count == 0 and
+               ns.parts | join('|') == clear_state_signature and is_state(repeat.item, 'on') }}
+        - action: light.turn_off
+          continue_on_error: true
+          target:
+            entity_id: "{{ repeat.item }}"
 
-mode: parallel
-max: 20
+mode: restart
 max_exceeded: silent
+
+trace:
+  stored_traces: 20

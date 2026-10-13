@@ -60,81 +60,90 @@ blueprint:
         button_1:
           name: Preset 1 - Right / Brighter
           description: Preset 1 scroll-right event entity.
-          default: event.bilresa_unused_preset_1_button_1
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_2:
           name: Preset 1 - Left / Dimmer
           description: Preset 1 scroll-left event entity.
-          default: event.bilresa_unused_preset_1_button_2
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_3:
           name: Preset 1 - Centre Push
           description: Preset 1 centre/push event entity.
-          default: event.bilresa_unused_preset_1_button_3
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_4:
           name: Preset 2 - Right / Brighter
           description: Preset 2 scroll-right event entity.
-          default: event.bilresa_unused_preset_2_button_4
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_5:
           name: Preset 2 - Left / Dimmer
           description: Preset 2 scroll-left event entity.
-          default: event.bilresa_unused_preset_2_button_5
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_6:
           name: Preset 2 - Centre Push
           description: Preset 2 centre/push event entity.
-          default: event.bilresa_unused_preset_2_button_6
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_7:
           name: Preset 3 - Right / Brighter
           description: Preset 3 scroll-right event entity.
-          default: event.bilresa_unused_preset_3_button_7
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_8:
           name: Preset 3 - Left / Dimmer
           description: Preset 3 scroll-left event entity.
-          default: event.bilresa_unused_preset_3_button_8
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
         button_9:
           name: Preset 3 - Centre Push
           description: Preset 3 centre/push event entity.
-          default: event.bilresa_unused_preset_3_button_9
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
                 - domain: event
 
@@ -234,6 +243,28 @@ blueprint:
         turns them on at the minimum brightness.
       input:
 
+        manual_override:
+          name: Manual Override Helpers (Optional)
+          description: Turn these helpers ON after a valid remote gesture. Share them with MYGGSPRAY to keep manual lighting until you turn the helpers OFF.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: input_boolean
+
+        response_timeout:
+          name: Device Response Wait
+          description: Maximum extra time to wait for each light to acknowledge a command, in addition to its transition. Keeps rapid gestures from reading stale brightness or colour.
+          default: 2
+          selector:
+            number:
+              min: 0.1
+              max: 10
+              step: 0.1
+              unit_of_measurement: s
+              mode: box
+
         brightness_step:
           name: Brightness Per Wheel Detent
           description: Percentage changed for each reported wheel detent.
@@ -253,7 +284,7 @@ blueprint:
           selector:
             number:
               min: 1
-              max: 100
+              max: 250
               step: 1
               unit_of_measurement: "%"
               mode: slider
@@ -265,7 +296,7 @@ blueprint:
           selector:
             number:
               min: 1
-              max: 100
+              max: 250
               step: 1
               unit_of_measurement: "%"
               mode: slider
@@ -411,104 +442,77 @@ blueprint:
 # ==============================================================
 
 mode: queued
-max: 10
-max_exceeded: silent
+max: 25
+max_exceeded: warning
 
 
 # ==============================================================
 # TRIGGERS
 # ==============================================================
 
-trigger:
+triggers:
 
   # Preset 1
-  - platform: state
+  - trigger: state
     entity_id: !input button_1
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset1_right
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_2
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset1_left
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_3
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset1_centre
 
   # Preset 2
-  - platform: state
+  - trigger: state
     entity_id: !input button_4
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset2_right
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_5
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset2_left
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_6
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset2_centre
 
   # Preset 3
-  - platform: state
+  - trigger: state
     entity_id: !input button_7
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset3_right
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_8
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
     id: preset3_left
 
-  - platform: state
+  - trigger: state
     entity_id: !input button_9
-    not_from:
-      - unknown
-      - unavailable
     not_to:
       - unknown
       - unavailable
@@ -519,7 +523,11 @@ trigger:
 # ACTIONS
 # ==============================================================
 
-action:
+actions:
+  - alias: Require a real device trigger
+    condition: template
+    value_template: "{{ trigger is defined and trigger.id is defined and trigger.to_state is defined and trigger.to_state is not none }}"
+
 
   # ------------------------------------------------------------
   # RAW INPUT VALUES
@@ -534,6 +542,8 @@ action:
       p2_lights: !input preset_2_lights
       p3_lights: !input preset_3_lights
 
+      manual_override: !input manual_override
+      response_timeout: !input response_timeout
       brightness_step: !input brightness_step
       brightness_min: !input brightness_min
       brightness_max: !input brightness_max
@@ -545,10 +555,8 @@ action:
       p3_colour_presets: !input preset_3_colour_presets
       colour_transition: !input colour_transition
 
-      # Matter event type. Centre-button matching is permissive on purpose:
-      # Matter integrations report tap/hold with different names, so any event
-      # containing "long"/"hold" counts as a hold and any press/click/tap
-      # counts as a tap. Anything else is ignored.
+      # Act only on completed gestures. Initial press and long-press start
+      # are intermediate events, not independent taps/holds.
       event_type: >-
         {{
           trigger.to_state.attributes.event_type
@@ -560,16 +568,10 @@ action:
       # BILRESA reports a burst of wheel detents in this attribute. Clamped so
       # one spin cannot jump further than intended by an extreme value.
       scroll_clicks: >-
-        {{
-          [[
-            trigger.to_state.attributes.totalNumberOfPressesCounted
-            | default(1, true)
-            | int(1),
-            1
-          ] | max, 25] | min
-          if trigger.to_state is not none
-          else 1
-        }}
+        {% set fallback = event_type.rsplit('_', 1)[-1] | int(1)
+                          if event_type.startswith('multi_press_') else 1 %}
+        {% set counted = trigger.to_state.attributes.get('totalNumberOfPressesCounted', fallback) %}
+        {{ [[counted | int(fallback), 1] | max, 25] | min }}
 
       legacy_colour_order:
         - warm_white
@@ -701,6 +703,11 @@ action:
         }}
 
 
+  - variables:
+      target_lights: >-
+        {{ expand(target_lights) | selectattr('state', 'in', ['on', 'off'])
+           | map(attribute='entity_id') | list }}
+
   # ------------------------------------------------------------
   # DERIVED RUNTIME VALUES
   # ------------------------------------------------------------
@@ -737,7 +744,12 @@ action:
             {% if
               item is mapping
               and item.colour is defined
+              and item.colour is sequence
+              and item.colour is not string
               and item.colour | count == 3
+              and item.colour | select('number') | list | count == 3
+              and item.colour | min >= 0
+              and item.colour | max <= 255
             %}
               {% set ns.items = ns.items + [item.colour] %}
             {% endif %}
@@ -748,13 +760,13 @@ action:
         {{ ns.items }}
 
       centre_action: >-
-        {% if 'long' in event_type_lower or 'hold' in event_type_lower %}
+        {% if event_type_lower in ['long_release', 'hold_release'] %}
           {% if centre_layout == 'tap_power_hold_colour' %}
             colour
           {% else %}
             power
           {% endif %}
-        {% elif 'press' in event_type_lower or 'click' in event_type_lower or 'tap' in event_type_lower or 'single' in event_type_lower or 'double' in event_type_lower or 'multi' in event_type_lower or 'initial' in event_type_lower or 'short' in event_type_lower %}
+        {% elif event_type_lower in ['multi_press_1', 'multi_press_2', 'multi_press_3', 'multi_press_4', 'multi_press_5', 'multi_press_6', 'multi_press_7', 'multi_press_8', 'short_release', 'single_short_release', 'double_short_release', 'single_press', 'double_press', 'single', 'double', 'click', 'tap'] %}
           {% if centre_layout == 'tap_power_hold_colour' %}
             power
           {% else %}
@@ -768,305 +780,169 @@ action:
   # ------------------------------------------------------------
   # STALE MATTER EVENT PROTECTION
   # ------------------------------------------------------------
-  # Event entities update last_changed on every press. Queued wheel spins can
+  # The event timestamp must match the state update, not a restored old event.
+  # Queued wheel spins can
   # lag a few seconds behind real time, so the window is generous. Without it,
   # an old replayed state after a restart could toggle the lights.
   - condition: template
     value_template: >-
       {{
         trigger.to_state is not none
-        and (now() - trigger.to_state.last_changed).total_seconds() < 30
+        and trigger.from_state is not none
+        and trigger.from_state.state != trigger.to_state.state
+        and as_timestamp(trigger.to_state.state, 0) >= as_timestamp(trigger.to_state.last_changed) - 1
+        and not trigger.to_state.attributes.get('restored', false)
+        and 0 <= (as_timestamp(now()) - as_timestamp(trigger.to_state.state, 0)) < 30
+        and not (event_type_lower == 'short_release' and
+          (trigger.to_state.attributes.get('event_types', []) | select('match', '^multi_press_') | list | count > 0))
+        and event_type_lower in ['multi_press_1', 'multi_press_2', 'multi_press_3',
+            'multi_press_4', 'multi_press_5', 'multi_press_6', 'multi_press_7', 'multi_press_8', 'short_release',
+            'single_short_release', 'double_short_release', 'single_press',
+            'double_press', 'single', 'double', 'click', 'tap',
+            'long_release', 'hold_release']
       }}
 
 
-  # ------------------------------------------------------------
-  # ACTION ROUTING
-  # ------------------------------------------------------------
+  - variables:
+      low_brightness: "{{ [brightness_min | float, brightness_max | float] | min }}"
+      high_brightness: "{{ [brightness_min | float, brightness_max | float] | max }}"
+      dimmable_on_lights: >-
+        {% set ns = namespace(lights=[]) %}
+        {% for light in expand(on_lights) %}
+          {% set modes = light.attributes.get('supported_color_modes', []) %}
+          {% if modes and modes != ['onoff'] %}
+            {% set ns.lights = ns.lights + [light.entity_id] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.lights }}
+      rgb_lights: >-
+        {% set ns = namespace(lights=[]) %}
+        {% for light in expand(target_lights) %}
+          {% if light.attributes.get('supported_color_modes', [])
+                | select('in', ['rgb', 'rgbw', 'rgbww', 'hs', 'xy']) | list | count > 0 %}
+            {% set ns.lights = ns.lights + [light.entity_id] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.lights }}
+
+  - variables:
+      rgb_on_lights: >-
+        {{ expand(rgb_lights) | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}
+      right_targets: "{{ dimmable_on_lights if on_lights | count > 0 else target_lights }}"
+
+  - condition: template
+    value_template: >-
+      {{ target_lights | count > 0 and
+         ((trigger.id.endswith('_right') and right_targets | count > 0 and event_type_lower not in ['long_release', 'hold_release']) or
+          (trigger.id.endswith('_left') and dimmable_on_lights | count > 0 and event_type_lower not in ['long_release', 'hold_release']) or
+          (trigger.id.endswith('_centre') and
+            (centre_action == 'power' or (centre_action == 'colour' and active_colours | count > 0 and rgb_lights | count > 0)))) }}
+
+  - if: "{{ manual_override | count > 0 }}"
+    then:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: "{{ manual_override }}"
+      - alias: Confirm manual priority before changing lights
+        wait_template: >-
+          {{ expand(manual_override) | count == manual_override | unique | list | count and
+             expand(manual_override) | rejectattr('state', 'eq', 'on') | list | count == 0 }}
+        timeout: "{{ [0.001, response_timeout | float(2)] | max }}"
+        continue_on_timeout: false
+
   - choose:
-
-      # ========================================================
-      # RIGHT - BRIGHTNESS UP
-      # ========================================================
-      - conditions:
-          - condition: template
-            value_template: >-
-              {{
-                trigger.id in ['preset1_right', 'preset2_right', 'preset3_right']
-                and target_lights | count > 0
-              }}
-        sequence:
-          - choose:
-
-              # Lights are on: brighten the lights that are on.
-              - conditions:
-                  - condition: template
-                    value_template: "{{ on_lights | count > 0 }}"
-                sequence:
-                  - repeat:
-                      for_each: "{{ on_lights }}"
-                      sequence:
-
-                        - variables:
-                            new_brightness_pct: >-
-                              {% set current =
-                                (state_attr(repeat.item, 'brightness') | int(1))
-                                / 255 * 100
-                              %}
-
-                              {% set low =
-                                [brightness_min | float, brightness_max | float] | min
-                              %}
-
-                              {% set high =
-                                [brightness_min | float, brightness_max | float] | max
-                              %}
-
-                              {% set requested =
-                                current
-                                + (
-                                  (brightness_step | float)
-                                  * (scroll_clicks | int(1))
-                                )
-                              %}
-
-                              {{
-                                [
-                                  high,
-                                  [low, requested] | max
-                                ]
-                                | min
-                                | round(0)
-                                | int
-                              }}
-
-                        - action: light.turn_on
-                          target:
-                            entity_id: "{{ repeat.item }}"
-                          data:
-                            brightness_pct: "{{ new_brightness_pct }}"
-                            transition: "{{ brightness_transition }}"
-
-            # Everything is off: scrolling right wakes the preset at minimum.
-            default:
-              - variables:
-                  wake_brightness_pct: >-
-                    {% set low =
-                      [brightness_min | float, brightness_max | float] | min
-                    %}
-
-                    {% set high =
-                      [brightness_min | float, brightness_max | float] | max
-                    %}
-
-                    {{
-                      [
-                        high,
-                        [low, brightness_min | float] | max
-                      ]
-                      | min
-                      | round(0)
-                      | int
-                    }}
-              - action: light.turn_on
-                target:
-                  entity_id: "{{ target_lights }}"
-                data:
-                  brightness_pct: "{{ wake_brightness_pct }}"
-                  transition: "{{ brightness_transition }}"
-
-
-      # ========================================================
-      # LEFT - BRIGHTNESS DOWN
-      # ========================================================
-      - conditions:
-          - condition: template
-            value_template: >-
-              {{
-                trigger.id in ['preset1_left', 'preset2_left', 'preset3_left']
-                and on_lights | count > 0
-              }}
+      - alias: Wheel brightness, with device acknowledgement between gestures
+        conditions: "{{ trigger.id.endswith('_right') or trigger.id.endswith('_left') }}"
         sequence:
           - repeat:
-              for_each: "{{ on_lights }}"
+              for_each: "{{ right_targets if trigger.id.endswith('_right') else dimmable_on_lights }}"
               sequence:
-
                 - variables:
-                    new_brightness_pct: >-
-                      {% set current =
-                        (state_attr(repeat.item, 'brightness') | int(255))
-                        / 255 * 100
-                      %}
-
-                      {% set low =
-                        [brightness_min | float, brightness_max | float] | min
-                      %}
-
-                      {% set high =
-                        [brightness_min | float, brightness_max | float] | max
-                      %}
-
-                      {% set requested =
-                        current
-                        - (
-                          (brightness_step | float)
-                          * (scroll_clicks | int(1))
-                        )
-                      %}
-
-                      {{
-                        [
-                          high,
-                          [low, requested] | max
-                        ]
-                        | min
-                        | round(0)
-                        | int
-                      }}
-
+                    can_dim: >-
+                      {{ (state_attr(repeat.item, 'supported_color_modes') or []) | count > 0 and
+                         state_attr(repeat.item, 'supported_color_modes') != ['onoff'] }}
+                    requested_brightness: >-
+                      {% if is_state(repeat.item, 'off') %}
+                        {{ low_brightness | int }}
+                      {% else %}
+                        {% set current = state_attr(repeat.item, 'brightness') | int(1) / 255 * 100 %}
+                        {% set direction = 1 if trigger.id.endswith('_right') else -1 %}
+                        {{ [high_brightness, [low_brightness,
+                            current + direction * brightness_step | float * scroll_clicks | int] | max]
+                            | min | round(0) | int }}
+                      {% endif %}
                 - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data: >-
+                    {{ dict(brightness_pct=requested_brightness, transition=brightness_transition)
+                       if can_dim else dict() }}
+                - wait_template: >-
+                    {{ is_state(repeat.item, 'on') and
+                       (not can_dim or
+                        (state_attr(repeat.item, 'brightness') | float(0) / 255 * 100 - requested_brightness | float) | abs <= 1) }}
+                  timeout: "{{ [0.001, brightness_transition | float(0) + response_timeout | float(2)] | max }}"
+                  continue_on_timeout: true
+
+      - alias: Centre power with isolated device actions
+        conditions: "{{ centre_action == 'power' }}"
+        sequence:
+          - variables:
+              desired_power: "{{ 'off' if on_lights | count > 0 else 'on' }}"
+          - repeat:
+              for_each: "{{ target_lights }}"
+              sequence:
+                - action: "{{ 'light.turn_' ~ desired_power }}"
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
-                    brightness_pct: "{{ new_brightness_pct }}"
                     transition: "{{ brightness_transition }}"
+          - wait_template: >-
+              {{ expand(target_lights) | selectattr('state', 'eq', desired_power) | list | count == target_lights | count }}
+            timeout: "{{ [0.001, brightness_transition | float(0) + response_timeout | float(2)] | max }}"
+            continue_on_timeout: true
 
-
-      # ========================================================
-      # CENTRE BUTTON - POWER
-      # ========================================================
-      - conditions:
-          - condition: template
-            value_template: >-
-              {{
-                trigger.id in ['preset1_centre', 'preset2_centre', 'preset3_centre']
-                and centre_action == 'power'
-                and target_lights | count > 0
-              }}
+      - alias: Cycle colours only on lights that support RGB conversion
+        conditions: "{{ centre_action == 'colour' }}"
         sequence:
-          - choose:
+          - variables:
+              colour_targets: "{{ rgb_on_lights if rgb_on_lights | count > 0 else rgb_lights }}"
+              current_rgb: "{{ state_attr(rgb_on_lights[0], 'rgb_color') if rgb_on_lights | count > 0 else none }}"
+          - variables:
+              next_rgb: >-
+                {% set ns = namespace(best_index=-1, best_distance=999999999) %}
+                {% if current_rgb is sequence and current_rgb | count == 3 %}
+                  {% for rgb in active_colours %}
+                    {% set distance = ((current_rgb[0] | int - rgb[0] | int) ** 2)
+                                    + ((current_rgb[1] | int - rgb[1] | int) ** 2)
+                                    + ((current_rgb[2] | int - rgb[2] | int) ** 2) %}
+                    {% if distance < ns.best_distance %}
+                      {% set ns.best_distance = distance %}
+                      {% set ns.best_index = loop.index0 %}
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+                {{ active_colours[(ns.best_index + 1) % (active_colours | count)] }}
+          - repeat:
+              for_each: "{{ colour_targets }}"
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    rgb_color: "{{ next_rgb }}"
+                    transition: "{{ colour_transition }}"
+                - wait_template: >-
+                    {% set rgb = state_attr(repeat.item, 'rgb_color') %}
+                    {{ is_state(repeat.item, 'on') and rgb is sequence and rgb | count == 3 and
+                       (rgb[0] | int - next_rgb[0] | int) | abs <= 20 and
+                       (rgb[1] | int - next_rgb[1] | int) | abs <= 20 and
+                       (rgb[2] | int - next_rgb[2] | int) | abs <= 20 }}
+                  timeout: "{{ [0.001, colour_transition | float(0) + response_timeout | float(2)] | max }}"
+                  continue_on_timeout: true
 
-              - conditions:
-                  - condition: template
-                    value_template: >-
-                      {{
-                        expand(target_lights)
-                        | selectattr('state', 'eq', 'on')
-                        | list
-                        | count > 0
-                      }}
-                sequence:
-                  - action: light.turn_off
-                    target:
-                      entity_id: "{{ target_lights }}"
-                    data:
-                      transition: "{{ brightness_transition }}"
-
-            default:
-              - action: light.turn_on
-                target:
-                  entity_id: "{{ target_lights }}"
-                data:
-                  transition: "{{ brightness_transition }}"
-
-
-      # ========================================================
-      # CENTRE BUTTON - COLOUR
-      # ========================================================
-      - conditions:
-          - condition: template
-            value_template: >-
-              {{
-                trigger.id in ['preset1_centre', 'preset2_centre', 'preset3_centre']
-                and centre_action == 'colour'
-                and target_lights | count > 0
-                and active_colours | count > 0
-              }}
-        sequence:
-          - choose:
-
-              # Lights are on: advance from the closest colour.
-              - conditions:
-                  - condition: template
-                    value_template: "{{ on_lights | count > 0 }}"
-                sequence:
-
-                  - variables:
-
-                      reference_light: >-
-                        {{ on_lights[0] }}
-
-                      current_rgb: >-
-                        {{ state_attr(reference_light, 'rgb_color') }}
-
-                      next_rgb: >-
-                        {% set ns = namespace(
-                          best_index=-1,
-                          best_distance=999999999
-                        ) %}
-
-                        {% if current_rgb is not none %}
-
-                          {% for rgb in active_colours %}
-
-                            {% set red_difference =
-                              (current_rgb[0] | int)
-                              -
-                              (rgb[0] | int)
-                            %}
-
-                            {% set green_difference =
-                              (current_rgb[1] | int)
-                              -
-                              (rgb[1] | int)
-                            %}
-
-                            {% set blue_difference =
-                              (current_rgb[2] | int)
-                              -
-                              (rgb[2] | int)
-                            %}
-
-                            {% set distance =
-                              (red_difference * red_difference)
-                              +
-                              (green_difference * green_difference)
-                              +
-                              (blue_difference * blue_difference)
-                            %}
-
-                            {% if distance < ns.best_distance %}
-                              {% set ns.best_distance = distance %}
-                              {% set ns.best_index = loop.index0 %}
-                            {% endif %}
-
-                          {% endfor %}
-
-                        {% endif %}
-
-                        {% if ns.best_index == -1 %}
-                          {% set next_index = 0 %}
-                        {% else %}
-                          {% set next_index =
-                            (ns.best_index + 1)
-                            %
-                            (active_colours | count)
-                          %}
-                        {% endif %}
-
-                        {{ active_colours[next_index] }}
-
-                  - action: light.turn_on
-                    target:
-                      entity_id: "{{ on_lights }}"
-                    data:
-                      rgb_color: "{{ next_rgb }}"
-                      transition: "{{ colour_transition }}"
-
-            # Everything is off: colour tap wakes the preset on the first colour.
-            default:
-              - action: light.turn_on
-                target:
-                  entity_id: "{{ target_lights }}"
-                data:
-                  rgb_color: "{{ active_colours[0] }}"
-                  transition: "{{ colour_transition }}"
+trace:
+  stored_traces: 20

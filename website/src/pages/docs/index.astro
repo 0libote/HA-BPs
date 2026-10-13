@@ -30,6 +30,20 @@ import { blueprints, shortBlurb, bpNeeds, bpIcon } from '../../lib/blueprints';
     ))}
   </div>
 
+  <h2 class="h-sec">Use them together</h2>
+  <div class="prose">
+    <p>BILRESA provides manual control, MYGGSPRAY owns the motion sessions it starts,
+      and Forgot to Turn Off supplies a longer passive safety timeout.</p>
+    <p>For reliable manual priority, create a Toggle helper and select it under
+      <strong>Manual Override Helpers</strong> in both BILRESA and MYGGSPRAY.
+      A remote gesture sets it ON before changing lights. Turn it OFF to allow
+      fresh motion to start a session again. The passive safety timeout still applies.</p>
+    <p>Use the same room sensors and choose a safety timeout longer than the motion
+      clear delay. Faults release motion control without switching an occupied room off.</p>
+    <p><a href="https://github.com/0libote/HA-BPs/blob/main/blueprints/README.md#using-the-blueprints-together">Integration and upgrade guide</a>
+      · <a href="https://github.com/0libote/HA-BPs/blob/main/docs/automation-review.md">Engineering review</a></p>
+  </div>
+
   <h2 class="h-sec">Manual install</h2>
   <div class="prose">
     <p>

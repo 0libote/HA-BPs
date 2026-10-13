@@ -8,12 +8,12 @@ blueprint:
     GitHub: https://github.com/0libote/HA-BPs
 
     Behaviour:
-    - Starts when any selected doorbell binary sensor turns on.
+    - Starts on a selected binary sensor OFF-to-ON or a fresh doorbell event.
     - Sets every selected speaker to the announcement volume.
     - Speaks the configured message on each speaker through the selected TTS
       entity.
-    - After the configured delay, sets the speakers to the chosen normal volume
-      and can stop any remaining announcement playback.
+    - After the configured delay, restores each speaker's previous volume
+      (or the configured fallback) and optionally stops playback.
     - Supports optional conditions and extra actions.
     - Ignores another press while the current announcement run is active.
 
@@ -31,12 +31,24 @@ blueprint:
       input:
         doorbell_sensors:
           name: Doorbell Sensors
-          description: Select one or more binary sensors that turn on when the doorbell is pressed.
+          default: []
+          description: Binary sensors that turn on when pressed. Leave empty when using Doorbell Events.
           selector:
             entity:
               multiple: true
               filter:
                 - domain: binary_sensor
+
+        doorbell_events:
+          name: Doorbell Events (Optional)
+          description: Event entities that publish a new timestamp on each ring. Configure sensors, events, or both.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: event
+                  device_class: doorbell
 
         extra_conditions:
           name: Extra Conditions
@@ -89,19 +101,38 @@ blueprint:
       icon: mdi:volume-minus
       collapsed: false
       input:
+        startup_timeout:
+          name: Speaker Startup Wait
+          description: Maximum time for all available speakers to show new playback. If any speaker does not acknowledge it, keep announcement volume for the full cleanup delay instead of assuming it finished.
+          default: 5
+          selector:
+            number:
+              min: 0.1
+              max: 30
+              step: 0.1
+              unit_of_measurement: s
+              mode: box
+
         cleanup_delay:
           name: Delay Before Cleanup
-          description: Allow enough time for the message to finish before cleanup.
+          description: Maximum playback wait after a short startup grace. Cleanup runs earlier when every speaker reports playback finished; increase this for longer messages.
           default:
             hours: 0
             minutes: 0
-            seconds: 5
+            seconds: 30
           selector:
             duration:
 
+        restore_previous_volume:
+          name: Restore Previous Volume
+          description: Restore each speaker's own volume; use Volume After Announcement when disabled or no previous volume is available.
+          default: true
+          selector:
+            boolean:
+
         normal_volume:
           name: Volume After Announcement
-          description: Volume applied to every selected speaker after the delay.
+          description: Fallback when no previous volume is known, or fixed volume when Restore Previous Volume is disabled.
           default: 0.3
           selector:
             number:
@@ -113,7 +144,7 @@ blueprint:
         stop_after_announcement:
           name: Stop Playback After Announcement
           description: Stop any announcement audio still playing after the cleanup delay.
-          default: true
+          default: false
           selector:
             boolean:
 
@@ -126,60 +157,171 @@ blueprint:
 
 variables:
   speakers: !input media_players
+  restore_volume: !input restore_previous_volume
   announcement_message: !input message
   announcement_level: !input announcement_volume
   normal_level: !input normal_volume
   should_stop: !input stop_after_announcement
+  tts_provider: !input tts_entity
+  startup_timeout: !input startup_timeout
+  playback_timeout: !input cleanup_delay
+  playback_seconds: >
+    {% if playback_timeout is mapping %}
+      {% set duration = timedelta(**playback_timeout) %}
+    {% elif playback_timeout is number %}
+      {% set duration = timedelta(seconds=playback_timeout) %}
+    {% else %}
+      {% set duration = as_timedelta(playback_timeout) %}
+    {% endif %}
+    {{ [0.001, duration.total_seconds() if duration is not none else 30] | max }}
 
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: !input doorbell_sensors
+    from: "off"
     to: "on"
+    id: binary_ring
+  - trigger: state
+    entity_id: !input doorbell_events
+    not_to:
+      - unknown
+      - unavailable
+    id: event_ring
 
-condition:
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.id == 'binary_ring' or
+         (trigger.to_state is not none and trigger.from_state is not none and
+          trigger.to_state.state != trigger.from_state.state and
+          as_timestamp(trigger.to_state.state, 0) >= as_timestamp(trigger.to_state.last_changed) - 1 and
+          not trigger.to_state.attributes.get('restored', false) and
+          0 <= as_timestamp(now()) - as_timestamp(trigger.to_state.state, 0) < 30) }}
+
   - condition: and
     conditions: !input extra_conditions
 
-action:
-  - action: media_player.volume_set
-    continue_on_error: true
-    target:
-      entity_id: "{{ speakers }}"
-    data:
-      volume_level: "{{ announcement_level }}"
+actions:
+  - variables:
+      available_speakers: >
+        {{ expand(speakers) | rejectattr('state', 'in', ['unknown', 'unavailable'])
+           | map(attribute='entity_id') | list
+           if states[tts_provider] is not none and not is_state(tts_provider, 'unavailable') else [] }}
+      playback_timed_out: false
+      previous_volumes: >
+        {% set ns = namespace(levels={}) %}
+        {% for speaker in expand(speakers) %}
+          {% if is_number(speaker.attributes.get('volume_level')) and
+                0 <= speaker.attributes.volume_level | float <= 1 %}
+            {% set ns.levels = dict(ns.levels, **{speaker.entity_id: speaker.attributes.volume_level}) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.levels }}
 
   - repeat:
-      for_each: "{{ speakers }}"
+      for_each: "{{ available_speakers }}"
+      sequence:
+        - if: "{{ is_number(state_attr(repeat.item, 'volume_level')) }}"
+          then:
+            - action: media_player.volume_set
+              continue_on_error: true
+              target:
+                entity_id: "{{ repeat.item }}"
+              data:
+                volume_level: "{{ announcement_level }}"
+
+  - variables:
+      playback_before: >
+        {% set ns = namespace(players={}) %}
+        {% for player in available_speakers %}
+          {% set speaker = states[player] %}
+          {% set ns.players = dict(ns.players, **{player:
+            dict(changed=as_timestamp(speaker.last_changed) if speaker is not none else 0,
+                 state=speaker.state if speaker is not none else 'unavailable',
+                 media=speaker.attributes.get('media_content_id') if speaker is not none else none)}) %}
+        {% endfor %}
+        {{ ns.players }}
+
+  - repeat:
+      for_each: "{{ available_speakers }}"
       sequence:
         - action: tts.speak
           continue_on_error: true
           target:
             entity_id: !input tts_entity
           data:
-            cache: false
+            cache: true
             media_player_entity_id: "{{ repeat.item }}"
             message: "{{ announcement_message }}"
 
-  - delay: !input cleanup_delay
-
-  - action: media_player.volume_set
-    continue_on_error: true
-    target:
-      entity_id: "{{ speakers }}"
-    data:
-      volume_level: "{{ normal_level }}"
-
-  - if:
-      - condition: template
-        value_template: "{{ should_stop }}"
+  - if: "{{ available_speakers | count > 0 }}"
     then:
-      - action: media_player.media_stop
-        continue_on_error: true
-        target:
-          entity_id: "{{ speakers }}"
+      - alias: Wait for every speaker to acknowledge new playback or become unavailable
+        wait_template: >
+          {% set ns = namespace(started=true) %}
+          {% for player in available_speakers %}
+            {% set speaker = states[player] %}
+            {% set previous = playback_before.get(player) %}
+            {% if speaker is not none and speaker.state not in ['unknown', 'unavailable'] and
+                  previous is not none and
+                  as_timestamp(speaker.last_changed) <= previous.changed and
+                  speaker.attributes.get('media_content_id') == previous.media %}
+              {% set ns.started = false %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.started }}
+        timeout: "{{ [0.001, startup_timeout | float(5)] | max }}"
+        continue_on_timeout: true
+      - variables:
+          startup_confirmed: "{{ wait.completed }}"
+      - if: "{{ startup_confirmed }}"
+        then:
+          - alias: Wait for playback completion with a bounded timeout
+            wait_template: >
+              {{ expand(available_speakers) | selectattr('state', 'in', ['playing', 'buffering']) | list | count == 0 }}
+            timeout: "{{ playback_seconds }}"
+            continue_on_timeout: true
+          - variables:
+              playback_timed_out: "{{ not wait.completed }}"
+        else:
+          - alias: Preserve volume for the full bound when playback was not acknowledged
+            delay: "{{ playback_seconds }}"
+          - variables:
+              playback_timed_out: true
+
+      - repeat:
+          for_each: "{{ available_speakers }}"
+          sequence:
+            - condition: template
+              value_template: "{{ states(repeat.item) not in ['unknown', 'unavailable'] }}"
+            - if: >
+                {{ should_stop and playback_timed_out and
+                   states(repeat.item) in ['playing', 'buffering'] and
+                   (playback_before[repeat.item].state not in ['playing', 'buffering'] or
+                    state_attr(repeat.item, 'media_content_id') != playback_before[repeat.item].media) }}
+              then:
+                - action: media_player.media_stop
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+            - if: >
+                {{ is_number(state_attr(repeat.item, 'volume_level')) and
+                   (state_attr(repeat.item, 'volume_level') | float - announcement_level | float) | abs < 0.01 }}
+              then:
+                - action: media_player.volume_set
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    volume_level: >
+                      {{ previous_volumes.get(repeat.item, normal_level)
+                         if restore_volume else normal_level }}
 
   - choose: []
     default: !input extra_actions
 
 mode: single
 max_exceeded: silent
+
+trace:
+  stored_traces: 20

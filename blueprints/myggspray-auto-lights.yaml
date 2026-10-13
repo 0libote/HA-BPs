@@ -20,9 +20,10 @@ blueprint:
       for the configured time.
     - Remembers each light's latest normal ON brightness/colour while idle and
       can restore that profile immediately before automatic switch-off.
-    - Manual/external OFF immediately releases the current motion-light session.
+    - Manual/external changes release motion control; OFF always releases it.
     - Recovers from stale session locks when all target lights are already off.
-    - Cleans up after sensor/light faults and has a maximum-runtime failsafe.
+    - Releases control without darkening the room on sensor/light faults.
+    - Has a configurable maximum-runtime policy and optional shared manual override.
     - Supports extra user-defined activation conditions.
 
     Previous-profile memory:
@@ -69,6 +70,8 @@ blueprint:
                   device_class: occupancy
                 - domain: binary_sensor
                   device_class: motion
+                - domain: binary_sensor
+                  device_class: presence
 
         illuminance_sensor:
           name: Illuminance Sensors
@@ -180,7 +183,7 @@ blueprint:
 
         maximum_runtime:
           name: Maximum Runtime
-          description: Safety timeout for a stuck sensor or missed clear event.
+          description: Stop owning the lights after this time. By default they remain on; choose forced OFF below only if that is safe for this room.
           default:
             hours: 3
             minutes: 0
@@ -206,13 +209,34 @@ blueprint:
         respect_manual_changes:
           name: Respect Manual Changes
           description: |
-            Retained for compatibility with existing automations. Manual OFF is
-            always treated as a release of motion-light control in this version.
-            Richer brightness/colour takeover detection will be reintroduced only
-            after the core motion lifecycle is proven reliable.
+            Release control when a user or another automation changes a light.
+            Physical brightness/colour changes are detected
+            after a ten-second turn-on settling period. Manual OFF always releases control.
           default: true
           selector:
             boolean:
+
+        runtime_limit_action:
+          name: At Maximum Runtime
+          description: Release leaves lights on for manual control or the passive safety net. Forced OFF can darken an occupied room.
+          default: release
+          selector:
+            select:
+              options:
+                - label: Release control and leave lights on
+                  value: release
+                - label: Force lights off
+                  value: turn_off
+
+        manual_override:
+          name: Manual Override Helpers (Optional)
+          description: Share input_boolean helpers with BILRESA. Any helper ON blocks motion activation and releases an active session. Turn them OFF to resume motion lighting.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: input_boolean
 
         extra_activation_conditions:
           name: Extra Activation Conditions
@@ -233,409 +257,318 @@ variables:
   automation_turn_on_transition: !input turn_on_transition
   restore_previous_profile: !input restore_previous_profile
   respect_manual_changes: !input respect_manual_changes
+  manual_override: !input manual_override
+  runtime_limit_action: !input runtime_limit_action
+  clear_duration: !input no_motion_duration
+  runtime_duration: !input maximum_runtime
   active_scene_id: "{{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
-  active_scene_entity: "{{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_active' }}"
+  active_scene_entity: "{{ 'scene.' ~ active_scene_id }}"
 
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: !input motion_sensor
-    to: "on"
-    id: motion_on
-
-  - platform: state
-    entity_id: !input motion_sensor
-    to: "off"
-    id: motion_off
-
-  - platform: state
-    entity_id: !input motion_sensor
-    to: "unavailable"
-    for:
-      seconds: 30
-    id: motion_fault
-
-  - platform: state
-    entity_id: !input motion_sensor
-    to: "unknown"
-    for:
-      seconds: 30
-    id: motion_fault
-
-  - platform: state
+    to:
+    id: motion_changed
+  - trigger: state
     entity_id: !input target_lights
     id: target_changed
+  - trigger: state
+    entity_id: !input manual_override
+    to:
+    id: override_changed
+  - trigger: time_pattern
+    seconds: "/10"
+    id: reconcile
+  - trigger: homeassistant
+    event: start
+    id: reset
+  - trigger: event
+    event_type: automation_reloaded
+    id: reset
 
-  - platform: state
-    entity_id: !input target_lights
-    to: "unavailable"
-    for:
-      seconds: 30
-    id: light_fault
+conditions: []
 
-condition: []
+actions:
+  - alias: Require a real device trigger
+    condition: template
+    value_template: "{{ trigger is defined and trigger.id is defined }}"
 
-action:
+  - variables:
+      session_active: "{{ states[active_scene_entity] is not none }}"
+      sensors_healthy: >
+        {{ motion_sensors | count > 0 and
+           expand(motion_sensors) | count == motion_sensors | unique | list | count and
+           expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
+      lights_healthy: >
+        {{ target_lights | count > 0 and
+           expand(target_lights) | count == target_lights | unique | list | count and
+           expand(target_lights) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
+      override_clear: >
+        {{ expand(manual_override) | count == manual_override | unique | list | count and
+           expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 }}
+      clear_seconds: >
+        {% if clear_duration is mapping %}
+          {% set duration = timedelta(**clear_duration) %}
+        {% elif clear_duration is number %}
+          {% set duration = timedelta(seconds=clear_duration) %}
+        {% else %}
+          {% set duration = as_timedelta(clear_duration) %}
+        {% endif %}
+        {{ [0, duration.total_seconds() if duration is not none else 120] | max }}
+      runtime_seconds: >
+        {% if runtime_duration is mapping %}
+          {% set duration = timedelta(**runtime_duration) %}
+        {% elif runtime_duration is number %}
+          {% set duration = timedelta(seconds=runtime_duration) %}
+        {% else %}
+          {% set duration = as_timedelta(runtime_duration) %}
+        {% endif %}
+        {{ [0, duration.total_seconds() if duration is not none else 10800] | max }}
+
   - choose:
-      - alias: Track normal profiles and manual OFF
-        conditions:
-          - condition: template
-            value_template: "{{ trigger.id == 'target_changed' }}"
+      - alias: Release ownership after restart or automation reload
+        conditions: "{{ trigger.id == 'reset' }}"
         sequence:
-          - choose:
-              - alias: OFF means the motion session no longer owns the lights
-                conditions:
-                  - condition: template
-                    value_template: >
-                      {{ active_scene_entity in
-                         (states.scene | map(attribute='entity_id') | list) }}
-                  - condition: template
-                    value_template: >
-                      {{ trigger.to_state is not none
-                         and trigger.to_state.state == 'off' }}
-                sequence:
-                  - action: scene.delete
-                    continue_on_error: true
-                    target:
-                      entity_id: "{{ active_scene_entity }}"
+          - if: "{{ session_active }}"
+            then:
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
+          - stop: Relearn profiles and require fresh motion after restart/reload.
 
-              - alias: Remember a normal ON profile while idle
-                conditions:
-                  - condition: template
-                    value_template: "{{ restore_previous_profile }}"
-                  - condition: template
-                    value_template: >
-                      {{ active_scene_entity not in
-                         (states.scene | map(attribute='entity_id') | list) }}
-                  - condition: template
-                    value_template: >
-                      {{ trigger.to_state is not none
-                         and trigger.to_state.state == 'on' }}
-                sequence:
-                  - variables:
-                      profile_scene_id: >
-                        {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
-                           ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
+      - alias: Reconcile an active motion session
+        conditions: "{{ session_active }}"
+        sequence:
+          - variables:
+              session_age: >
+                {{ as_timestamp(now()) - as_timestamp(states[active_scene_entity].last_changed) }}
+              manual_takeover: >
+                {% set ns = namespace(takeover=false) %}
+                {% if trigger.id == 'target_changed' and trigger.to_state is not none %}
+                  {% set new = trigger.to_state %}
+                  {% set old = trigger.from_state %}
+                  {% set changed = old is not none and
+                    (old.state != new.state or
+                     old.attributes.get('brightness') != new.attributes.get('brightness') or
+                     old.attributes.get('effect') != new.attributes.get('effect') or
+                     old.attributes.get('color_mode') != new.attributes.get('color_mode') or
+                     old.attributes.get('rgb_color') != new.attributes.get('rgb_color') or
+                     old.attributes.get('color_temp_kelvin') != new.attributes.get('color_temp_kelvin')) %}
+                  {% if changed and (new.context.user_id is not none or session_age | float(0) > 10) %}
+                    {% set ns.takeover = true %}
+                  {% endif %}
+                {% endif %}
+                {{ ns.takeover }}
+          - if:
+              - condition: template
+                value_template: >
+                  {{ not sensors_healthy or not lights_healthy or not override_clear or
+                     expand(target_lights) | selectattr('state', 'eq', 'off') | list | count > 0 or
+                     (respect_manual_changes and manual_takeover) }}
+            then:
+              - action: scene.delete
+                continue_on_error: true
+                target:
+                  entity_id: "{{ active_scene_entity }}"
+              - if: >
+                  {{ respect_manual_changes and manual_takeover and restore_previous_profile and
+                     trigger.id == 'target_changed' and trigger.to_state is not none and
+                     trigger.to_state.state == 'on' and is_state(trigger.entity_id, 'on') }}
+                then:
                   - action: scene.create
                     continue_on_error: true
                     data:
-                      scene_id: "{{ profile_scene_id }}"
-                      snapshot_entities:
-                        - "{{ trigger.entity_id }}"
+                      scene_id: >
+                        {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                           ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
+                      entities: >
+                        {{ {trigger.entity_id: dict(trigger.to_state.attributes, state='on')} }}
+              - stop: Released ownership after a fault, override or manual change; leave remaining lights alone.
 
-      - alias: Start motion lighting
-        conditions:
+          - variables:
+              runtime_expired: "{{ session_age | float(0) >= runtime_seconds | float(0) }}"
+              continuously_clear: >
+                {% set ns = namespace(clear=true) %}
+                {% for sensor in expand(motion_sensors) %}
+                  {% if sensor.state != 'off' or
+                        as_timestamp(now()) - as_timestamp(sensor.last_changed) < clear_seconds | float(0) %}
+                    {% set ns.clear = false %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.clear and session_age | float(0) >= clear_seconds | float(0) }}
           - condition: template
-            value_template: "{{ trigger.id == 'motion_on' }}"
-        sequence:
-          - alias: Recover stale ownership if every target light is already off
-            if:
-              - condition: template
-                value_template: >
-                  {{ active_scene_entity in
-                     (states.scene | map(attribute='entity_id') | list)
-                     and (target_lights | count) > 0
-                     and (expand(target_lights)
-                          | rejectattr('state', 'eq', 'off')
-                          | list | count) == 0 }}
+            value_template: "{{ continuously_clear or runtime_expired }}"
+          - if: "{{ runtime_expired and runtime_limit_action == 'release' and not continuously_clear }}"
             then:
               - action: scene.delete
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
+              - stop: Maximum runtime reached; release control without forcing an occupied room dark.
 
-          - condition: template
-            value_template: >
-              {{ active_scene_entity not in
-                 (states.scene | map(attribute='entity_id') | list) }}
+          - alias: Restore learned profiles only while still owning the lights
+            if: "{{ restore_previous_profile }}"
+            then:
+              - repeat:
+                  for_each: "{{ target_lights }}"
+                  sequence:
+                    - alias: Recheck live override and occupancy before changing a light
+                      condition: template
+                      value_template: >
+                        {% set ns = namespace(clear=true) %}
+                        {% for sensor in expand(motion_sensors) %}
+                          {% if sensor.state != 'off' or
+                                as_timestamp(now()) - as_timestamp(sensor.last_changed) < clear_seconds | float(0) %}
+                            {% set ns.clear = false %}
+                          {% endif %}
+                        {% endfor %}
+                        {{ is_state(repeat.item, 'on') and
+                           expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                           expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
+                           expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 and
+                           expand(manual_override) | count == manual_override | unique | list | count and
+                           (ns.clear or (runtime_expired and runtime_limit_action == 'turn_off')) }}
+                    - variables:
+                        remembered_scene: >
+                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                             ~ repeat.item.split('.')[1] ~ '_profile' }}
+                    - if: "{{ states[remembered_scene] is not none }}"
+                      then:
+                        - action: scene.turn_on
+                          continue_on_error: true
+                          target:
+                            entity_id: "{{ remembered_scene }}"
+          - repeat:
+              for_each: "{{ target_lights }}"
+              sequence:
+                - alias: Recheck live override and occupancy before changing a light
+                  condition: template
+                  value_template: >
+                    {% set ns = namespace(clear=true) %}
+                    {% for sensor in expand(motion_sensors) %}
+                      {% if sensor.state != 'off' or
+                            as_timestamp(now()) - as_timestamp(sensor.last_changed) < clear_seconds | float(0) %}
+                        {% set ns.clear = false %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ is_state(repeat.item, 'on') and
+                       expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                       expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
+                       expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 and
+                       expand(manual_override) | count == manual_override | unique | list | count and
+                       (ns.clear or (runtime_expired and runtime_limit_action == 'turn_off')) }}
+                - action: light.turn_off
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+          - action: scene.delete
+            continue_on_error: true
+            target:
+              entity_id: "{{ active_scene_entity }}"
 
-          - condition: template
-            value_template: >
-              {{ (expand(motion_sensors)
-                   | selectattr('state', 'eq', 'on')
-                   | list | count) > 0 }}
-
-          - condition: template
-            value_template: >
-              {% set ns = namespace(below_threshold=false) %}
-              {% for sensor in expand(illuminance_sensors) %}
-                {% if is_number(sensor.state)
-                      and (sensor.state | float) < (lux_threshold | float(0)) %}
-                  {% set ns.below_threshold = true %}
-                {% endif %}
-              {% endfor %}
-              {{ ns.below_threshold }}
-
-          - condition: template
-            value_template: >
-              {{ (target_lights | count) > 0
-                 and (expand(target_lights)
-                      | rejectattr('state', 'eq', 'off')
-                      | list | count) == 0 }}
-
-          - condition: and
-            conditions: !input extra_activation_conditions
-
-          - alias: Lock profile tracking for this session
-            action: scene.create
+      - alias: Remember normal profiles while idle
+        conditions: >
+          {{ trigger.id == 'target_changed' and restore_previous_profile and
+             trigger.to_state is not none and trigger.to_state.state == 'on' and
+             is_state(trigger.entity_id, 'on') }}
+        sequence:
+          - action: scene.create
             continue_on_error: true
             data:
-              scene_id: "{{ active_scene_id }}"
-              snapshot_entities: >
-                {{ expand(motion_sensors)
-                   | map(attribute='entity_id') | list }}
+              scene_id: >
+                {{ 'myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
+                   ~ trigger.entity_id.split('.')[1] ~ '_profile' }}
+              entities: >
+                {{ {trigger.entity_id: dict(trigger.to_state.attributes, state='on')} }}
 
+      - alias: Start only on fresh motion, never from polling or light changes
+        conditions: >
+          {{ trigger.id == 'motion_changed' and trigger.to_state is not none and
+             trigger.to_state.state == 'on' and sensors_healthy and lights_healthy and override_clear and
+             expand(motion_sensors) | selectattr('state', 'eq', 'on') | list | count > 0 }}
+        sequence:
           - condition: template
             value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - alias: Apply brightness and colour in one turn-on call
-            choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ automation_colour_mode == 'rgb' }}"
-                sequence:
-                  - action: light.turn_on
-                    continue_on_error: true
-                    target:
-                      entity_id: "{{ target_lights }}"
-                    data:
-                      brightness_pct: "{{ automation_brightness_pct }}"
-                      rgb_color: "{{ automation_rgb_colour }}"
-                      transition: "{{ automation_turn_on_transition }}"
-
-              - conditions:
-                  - condition: template
-                    value_template: "{{ automation_colour_mode == 'temperature' }}"
-                sequence:
-                  - action: light.turn_on
-                    continue_on_error: true
-                    target:
-                      entity_id: "{{ target_lights }}"
-                    data:
-                      brightness_pct: "{{ automation_brightness_pct }}"
-                      color_temp_kelvin: "{{ automation_colour_temperature }}"
-                      transition: "{{ automation_turn_on_transition }}"
-
-            default:
-              - action: light.turn_on
-                continue_on_error: true
-                target:
-                  entity_id: "{{ target_lights }}"
-                data:
-                  brightness_pct: "{{ automation_brightness_pct }}"
-                  transition: "{{ automation_turn_on_transition }}"
-
-          - wait_template: >
-              {{ (expand(target_lights) | selectattr('state', 'eq', 'on')
-                  | list | count) == (target_lights | count) }}
+              {{ expand(target_lights) | rejectattr('state', 'eq', 'off') | list | count == 0 }}
+          - condition: template
+            value_template: >
+              {% set ns = namespace(dark=false) %}
+              {% for sensor in expand(illuminance_sensors) %}
+                {% if is_number(sensor.state) and sensor.state | float < lux_threshold | float(0) %}
+                  {% set ns.dark = true %}
+                {% endif %}
+              {% endfor %}
+              {{ ns.dark }}
+          - condition: and
+            conditions: !input extra_activation_conditions
+          - action: scene.create
+            data:
+              scene_id: "{{ active_scene_id }}"
+              snapshot_entities: "{{ target_lights }}"
+          - wait_template: "{{ states[active_scene_entity] is not none }}"
+            timeout:
+              seconds: 2
+            continue_on_timeout: false
+          - repeat:
+              for_each: "{{ target_lights }}"
+              sequence:
+                - condition: template
+                  value_template: >
+                    {{ is_state(repeat.item, 'off') and
+                       expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                       expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
+                       expand(motion_sensors) | selectattr('state', 'eq', 'on') | list | count > 0 and
+                       expand(manual_override) | count == manual_override | unique | list | count and
+                       expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 }}
+                - variables:
+                    light_data: >
+                      {% set base = dict(brightness_pct=automation_brightness_pct,
+                                         transition=automation_turn_on_transition) %}
+                      {% set modes = state_attr(repeat.item, 'supported_color_modes') or [] %}
+                      {% if automation_colour_mode == 'rgb' and
+                            modes | select('in', ['rgb', 'rgbw', 'rgbww', 'hs', 'xy']) | list | count > 0 %}
+                        {{ dict(base, rgb_color=automation_rgb_colour) }}
+                      {% elif automation_colour_mode == 'temperature' and 'color_temp' in modes %}
+                        {% set low = state_attr(repeat.item, 'min_color_temp_kelvin') | int(2000) %}
+                        {% set high = state_attr(repeat.item, 'max_color_temp_kelvin') | int(6500) %}
+                        {{ dict(base, color_temp_kelvin=[high, [low, automation_colour_temperature | int] | max] | min) }}
+                      {% elif modes == ['onoff'] %}
+                        {{ dict() }}
+                      {% else %}
+                        {{ base }}
+                      {% endif %}
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data: "{{ light_data }}"
+          - alias: Wait for light state feedback or an intervening override/fault
+            wait_template: >
+              {{ expand(target_lights) | selectattr('state', 'eq', 'on') | list | count == target_lights | unique | list | count or
+                 expand(manual_override) | count != manual_override | unique | list | count or
+                 expand(motion_sensors) | count != motion_sensors | unique | list | count or
+                 expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count > 0 or
+                 expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
             timeout:
               seconds: 5
             continue_on_timeout: true
-
-          - alias: Abort cleanly if a target light failed to report ON
-            if:
-              - condition: template
-                value_template: "{{ not wait.completed }}"
+          - if: >
+              {{ not wait.completed or
+                 expand(target_lights) | selectattr('state', 'eq', 'on') | list | count != target_lights | unique | list | count or
+                 expand(manual_override) | count != manual_override | unique | list | count or
+                 expand(motion_sensors) | count != motion_sensors | unique | list | count or
+                 expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count > 0 or
+                 expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
             then:
-              - action: light.turn_off
-                continue_on_error: true
-                target:
-                  entity_id: "{{ target_lights }}"
               - action: scene.delete
                 continue_on_error: true
                 target:
                   entity_id: "{{ active_scene_entity }}"
-              - stop: One or more target lights failed to report ON.
+              - stop: Activation was incomplete or interrupted; release control and leave lights alone.
 
-          - alias: Wait for normal cleanup, with a maximum-runtime failsafe
-            wait_template: >
-              {{ active_scene_entity not in
-                 (states.scene | map(attribute='entity_id') | list) }}
-            timeout: !input maximum_runtime
-            continue_on_timeout: true
-
-          - alias: Stop this failsafe run if the session already ended normally
-            if:
-              - condition: template
-                value_template: "{{ wait.completed }}"
-            then:
-              - stop: Motion-light session ended before maximum runtime.
-
-          - condition: template
-            value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - alias: Restore remembered profiles before maximum-runtime OFF
-            if:
-              - condition: template
-                value_template: "{{ restore_previous_profile }}"
-            then:
-              - repeat:
-                  for_each: "{{ target_lights }}"
-                  sequence:
-                    - variables:
-                        remembered_scene_entity: >
-                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
-                             ~ repeat.item.split('.')[1] ~ '_profile' }}
-                    - if:
-                        - condition: template
-                          value_template: >
-                            {{ remembered_scene_entity in
-                               (states.scene | map(attribute='entity_id') | list) }}
-                      then:
-                        - action: scene.turn_on
-                          continue_on_error: true
-                          target:
-                            entity_id: "{{ remembered_scene_entity }}"
-                          data:
-                            transition: 0
-
-          - action: light.turn_off
-            continue_on_error: true
-            target:
-              entity_id: "{{ target_lights }}"
-
-          - action: scene.delete
-            continue_on_error: true
-            target:
-              entity_id: "{{ active_scene_entity }}"
-
-      - alias: End motion lighting after continuous clear time
-        conditions:
-          - condition: template
-            value_template: "{{ trigger.id == 'motion_off' }}"
-        sequence:
-          - condition: template
-            value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - alias: Start the countdown only when every motion detector is clear
-            condition: template
-            value_template: >
-              {{ (expand(motion_sensors) | list | count) > 0
-                 and (expand(motion_sensors)
-                      | rejectattr('state', 'eq', 'off')
-                      | list | count) == 0 }}
-
-          - alias: Remember when each motion detector became clear
-            variables:
-              clear_state_signature: >
-                {% set ns = namespace(parts=[]) %}
-                {% for sensor in expand(motion_sensors)
-                     | sort(attribute='entity_id') %}
-                  {% set ns.parts = ns.parts +
-                     [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
-                {% endfor %}
-                {{ ns.parts | join('|') }}
-
-          - delay: !input no_motion_duration
-
-          - condition: template
-            value_template: >
-              {{ (expand(motion_sensors) | list | count) > 0
-                 and (expand(motion_sensors)
-                      | rejectattr('state', 'eq', 'off')
-                      | list | count) == 0 }}
-
-          - alias: Ignore an old countdown if any detector changed state
-            condition: template
-            value_template: >
-              {% set ns = namespace(parts=[]) %}
-              {% for sensor in expand(motion_sensors)
-                   | sort(attribute='entity_id') %}
-                {% set ns.parts = ns.parts +
-                   [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
-              {% endfor %}
-              {{ ns.parts | join('|') == clear_state_signature }}
-
-          - condition: template
-            value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - alias: Restore remembered profiles before automatic OFF
-            if:
-              - condition: template
-                value_template: "{{ restore_previous_profile }}"
-            then:
-              - repeat:
-                  for_each: "{{ target_lights }}"
-                  sequence:
-                    - variables:
-                        remembered_scene_entity: >
-                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
-                             ~ repeat.item.split('.')[1] ~ '_profile' }}
-                    - if:
-                        - condition: template
-                          value_template: >
-                            {{ remembered_scene_entity in
-                               (states.scene | map(attribute='entity_id') | list) }}
-                      then:
-                        - action: scene.turn_on
-                          continue_on_error: true
-                          target:
-                            entity_id: "{{ remembered_scene_entity }}"
-                          data:
-                            transition: 0
-
-          - action: light.turn_off
-            continue_on_error: true
-            target:
-              entity_id: "{{ target_lights }}"
-
-          - action: scene.delete
-            continue_on_error: true
-            target:
-              entity_id: "{{ active_scene_entity }}"
-
-      - alias: Clean up safely after a sensor or light fault
-        conditions:
-          - condition: template
-            value_template: "{{ trigger.id in ['motion_fault', 'light_fault'] }}"
-        sequence:
-          - condition: template
-            value_template: >
-              {{ active_scene_entity in
-                 (states.scene | map(attribute='entity_id') | list) }}
-
-          - alias: Restore remembered profiles before fault cleanup
-            if:
-              - condition: template
-                value_template: "{{ restore_previous_profile }}"
-            then:
-              - repeat:
-                  for_each: "{{ target_lights }}"
-                  sequence:
-                    - variables:
-                        remembered_scene_entity: >
-                          {{ 'scene.myggspray_' ~ this.entity_id.split('.')[1] ~ '_'
-                             ~ repeat.item.split('.')[1] ~ '_profile' }}
-                    - if:
-                        - condition: template
-                          value_template: >
-                            {{ remembered_scene_entity in
-                               (states.scene | map(attribute='entity_id') | list) }}
-                      then:
-                        - action: scene.turn_on
-                          continue_on_error: true
-                          target:
-                            entity_id: "{{ remembered_scene_entity }}"
-                          data:
-                            transition: 0
-
-          - action: light.turn_off
-            continue_on_error: true
-            target:
-              entity_id: "{{ target_lights }}"
-
-          - action: scene.delete
-            continue_on_error: true
-            target:
-              entity_id: "{{ active_scene_entity }}"
-
-mode: parallel
-max: 50
-max_exceeded: silent
+mode: queued
+max: 100
+max_exceeded: warning
+trace:
+  stored_traces: 20

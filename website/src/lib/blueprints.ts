@@ -1,4 +1,5 @@
-import data from '../data/blueprints.json';
+import data from '../data/blueprints.json' with { type: 'json' };
+import { stringify } from 'yaml';
 
 export interface BpField {
   key: string;
@@ -51,8 +52,8 @@ export const shortBlurb: Record<string, string> = {
 };
 
 export const bpNeeds: Record<string, string> = {
-  'doorbell-announcement': 'doorbell binary sensor · TTS entity · media players',
-  'bilresa-scroll-wheel': 'BILRESA via Matter · 9 event entities · lights',
+  'doorbell-announcement': 'doorbell sensor or event · TTS entity · media players',
+  'bilresa-scroll-wheel': 'BILRESA via Matter · 3 event entities per used preset · lights',
   'myggspray-auto-lights': 'motion sensor · illuminance sensor · lights',
   'forgot-to-turn-off': 'motion / occupancy sensors · lights',
 };
@@ -97,53 +98,24 @@ export function initialValues(bp: Blueprint): Record<string, any> {
 
 /** Build a HA-style automation YAML preview from current showcase values. */
 export function buildAutomationYaml(bp: Blueprint, values: Record<string, any>, automationName: string): string {
-  const lines: string[] = [];
-  lines.push(`alias: ${automationName || bp.name}`);
-  lines.push(`description: Created from 0libote showcase replica (mock entities)`);
-  lines.push(`use_blueprint:`);
-  lines.push(`  path: 0libote/${bp.file}`);
-  lines.push(`  input:`);
-  for (const s of bp.sections) {
-    for (const f of s.fields) {
-      const v = values[f.key];
-      if (v === undefined) continue;
-      // Skip empty condition/action lists like HA does
-      if ((f.selectorType === 'condition' || f.selectorType === 'action') && Array.isArray(v) && v.length === 0) continue;
-      if (Array.isArray(v) && v.length === 0 && f.default !== undefined && JSON.stringify(f.default) === '[]') continue;
-      lines.push(`    ${f.key}: ${yamlScalar(v, 4)}`);
+  const inputs: Record<string, any> = {};
+  for (const section of bp.sections) {
+    for (const field of section.fields) {
+      const value = values[field.key];
+      if (value === undefined) continue;
+      if ((field.selectorType === 'condition' || field.selectorType === 'action') &&
+          Array.isArray(value) && value.length === 0) continue;
+      if (Array.isArray(value) && value.length === 0 &&
+          Array.isArray(field.default) && field.default.length === 0) continue;
+      inputs[field.key] = value;
     }
   }
-  lines.push(`mode: single`);
-  return lines.join('\n');
-}
-
-function yamlScalar(v: any, indent: number): string {
-  const pad = ' '.repeat(indent + 2);
-  if (v === null || v === undefined) return 'null';
-  if (typeof v === 'boolean') return v ? 'true' : 'false';
-  if (typeof v === 'number') return String(v);
-  if (typeof v === 'string') {
-    if (v === '') return `''`;
-    if (/[:#\n"'[\]{}]/.test(v)) return JSON.stringify(v);
-    return v;
-  }
-  if (Array.isArray(v)) {
-    if (v.length === 0) return '[]';
-    if (v.every((x) => typeof x === 'string' || typeof x === 'number')) return `[${v.map((x) => yamlScalar(x, indent)).join(', ')}]`;
-    // object list (colours)
-    const rows = v.map((item) => {
-      if (item && typeof item === 'object' && 'colour' in item) {
-        const rgb = Array.isArray((item as any).colour) ? `[${(item as any).colour.join(', ')}]` : String((item as any).colour);
-        return `\n${pad}- name: ${yamlScalar((item as any).name ?? '', indent)}\n${pad}  colour: ${rgb}`;
-      }
-      return `\n${pad}- ${yamlScalar(item, indent)}`;
-    });
-    return rows.join('');
-  }
-  if (typeof v === 'object') {
-    // duration
-    const parts = Object.entries(v).map(([k, val]) => `${k}: ${val}`);
-    return `{${parts.join(', ')}}`;
-  }
-  return JSON.stringify(v);
+  // Let YAML handle quoting and nested user actions. Inherit execution mode
+  // from the blueprint: overriding every export to single loses remote bursts
+  // and prevents the passive safety countdown from restarting.
+  return stringify({
+    alias: automationName || bp.name,
+    description: 'Created from 0libote showcase replica (mock entities)',
+    use_blueprint: { path: `0libote/${bp.file}`, input: inputs },
+  });
 }

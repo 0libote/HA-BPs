@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -139,3 +140,14 @@ def test_doorbell_supports_multiple_triggers_and_speakers() -> None:
     assert inputs["tts_entity"]["selector"]["entity"]["filter"] == [
         {"domain": "tts"}
     ]
+
+
+def test_showcase_catalogue_matches_current_blueprints() -> None:
+    catalogue = json.loads((ROOT / "website/src/data/blueprints.json").read_text())
+    entries = {entry["file"]: entry for entry in catalogue["blueprints"]}
+    paths = blueprint_files()
+    assert set(entries) == {path.name for path in paths}
+    for path in paths:
+        assert entries[path.name]["rawYaml"] == path.read_text(), (
+            f"{path.name}: regenerate the website catalogue after changing a blueprint"
+        )
