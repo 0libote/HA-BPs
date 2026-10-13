@@ -67,7 +67,7 @@ export const bpIcon: Record<string, string> = {
 };
 
 export function defaultValueFor(field: BpField): any {
-  if (field.default !== null && field.default !== undefined) return structuredCloneSafe(field.default);
+  if (field.default !== null && field.default !== undefined) return structuredClone(field.default);
   switch (field.selectorType) {
     case 'boolean': return false;
     case 'number': return field.selector?.min ?? 0;
@@ -75,18 +75,10 @@ export function defaultValueFor(field: BpField): any {
     case 'entity': return field.selector?.multiple ? [] : '';
     case 'select': return field.selector?.options?.[0]?.value ?? field.selector?.options?.[0] ?? '';
     case 'duration': return { hours: 0, minutes: 0, seconds: 0 };
-    case 'object': return Array.isArray(field.default) ? structuredCloneSafe(field.default) : [];
+    case 'object': return Array.isArray(field.default) ? structuredClone(field.default) : [];
     case 'color_rgb': return [255, 214, 170];
     case 'color_temp': return field.selector?.min ?? 2700;
     default: return field.selector?.multiple ? [] : '';
-  }
-}
-
-function structuredCloneSafe<T>(v: T): T {
-  try {
-    return JSON.parse(JSON.stringify(v));
-  } catch {
-    return v;
   }
 }
 
@@ -94,6 +86,22 @@ export function initialValues(bp: Blueprint): Record<string, any> {
   const out: Record<string, any> = {};
   for (const s of bp.sections) for (const f of s.fields) out[f.key] = defaultValueFor(f);
   return out;
+}
+
+/**
+ * Interactive lists carry UI-only row ids (stable React keys); they must not
+ * leak into exported automation YAML. Our schemas never use `id` as data.
+ */
+function stripRowIds(v: any): any {
+  if (Array.isArray(v)) return v.map(stripRowIds);
+  if (v && typeof v === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (k !== 'id') out[k] = stripRowIds(val);
+    }
+    return out;
+  }
+  return v;
 }
 
 /** Build a HA-style automation YAML preview from current showcase values. */
@@ -107,7 +115,7 @@ export function buildAutomationYaml(bp: Blueprint, values: Record<string, any>, 
           Array.isArray(value) && value.length === 0) continue;
       if (Array.isArray(value) && value.length === 0 &&
           Array.isArray(field.default) && field.default.length === 0) continue;
-      inputs[field.key] = value;
+      inputs[field.key] = stripRowIds(value);
     }
   }
   // Let YAML handle quoting and nested user actions. Inherit execution mode

@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - run: python -m pip install pytest PyYAML yamllint
+      - run: python -m pip install --only-binary :all: pytest==9.1.1 PyYAML==6.0.3 yamllint==1.38.0
 
       - name: Lint YAML
         shell: bash
@@ -76,7 +76,7 @@ jobs:
         working-directory: website
     steps:
       - uses: actions/checkout@v4
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run data:build
       - run: bun run test
       - run: bun run build

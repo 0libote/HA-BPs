@@ -16,7 +16,7 @@ want="${BUN_TAG#bun-v}"
 have="$("$BUN_INSTALL/bin/bun" --version 2>/dev/null || echo none)"
 if [[ "$have" != "$want" ]]; then
   echo "Installing $BUN_TAG (have: $have)..."
-  curl -fsSL https://bun.sh/install | bash -s -- "$BUN_TAG"
+  curl -fsSL --proto '=https' --tlsv1.2 https://bun.sh/install | bash -s -- "$BUN_TAG"
 else
   echo "Reusing cached bun $have"
 fi
@@ -24,5 +24,5 @@ fi
 export PATH="$BUN_INSTALL/bin:$PATH"
 echo "bun $(bun --version) at $(command -v bun)"
 
-bun install --frozen-lockfile
+bun install --frozen-lockfile --ignore-scripts
 bun run build

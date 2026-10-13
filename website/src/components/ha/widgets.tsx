@@ -22,6 +22,48 @@ export function EntityBadge({ entity, size = 36 }: { entity: MockEntity; size?: 
   );
 }
 
+function selectedIds(multiple: boolean | undefined, values: any, value: any): string[] {
+  if (multiple) return Array.isArray(values) ? values : [];
+  return value ? [value] : [];
+}
+
+/* Single-select closed value: known entity, unknown id, or placeholder. */
+function SingleValue({
+  label,
+  placeholder,
+  items,
+  value,
+}: {
+  label?: string;
+  placeholder: string;
+  items: ComboItem[];
+  value: string;
+}) {
+  if (!value) return <span className="ha2-placeholder">{placeholder}</span>;
+  const it = items.find((i) => i.id === value);
+  if (!it) {
+    return (
+      <>
+        <MdiIcon name="shape" size={24} />
+        <span>
+          <span className="ha2-headline">{value}</span>
+          <span className="ha2-support unknown-t">Unknown entity</span>
+        </span>
+      </>
+    );
+  }
+  return (
+    <>
+      {it.badge}
+      <span>
+        {label && <span className="ha2-overline">{label}</span>}
+        <span className="ha2-headline">{it.headline}</span>
+        {it.support && <span className="ha2-support">{it.support}</span>}
+      </span>
+    </>
+  );
+}
+
 function useDismiss(onDismiss: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -93,7 +135,7 @@ export function ComboBox({
   }, [items, q]);
 
   const multi = !!multiple;
-  const sel: string[] = multi ? (values ?? []) : value ? [value] : [];
+  const sel: string[] = selectedIds(multi, values, value);
   const unknownSingle = !multi && value ? !items.some((i) => i.id === value) : false;
 
   return (
@@ -110,16 +152,15 @@ export function ComboBox({
             {sel.map((id) => {
               const it = items.find((i) => i.id === id);
               return (
-                <span
-                  className="ha2-chip"
-                  key={id}
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <span className="ha2-chip" key={id}>
                   <code>{it?.headline ?? id}</code>
                   <button
                     type="button"
                     aria-label={`Remove ${id}`}
-                    onClick={() => onPick(id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPick(id);
+                    }}
                   >
                     <MdiIcon name="close" size={13} />
                   </button>
@@ -131,33 +172,8 @@ export function ComboBox({
           <span className="ha2-field-main">
             {renderValue ? (
               renderValue()
-            ) : value ? (
-              (() => {
-                const it = items.find((i) => i.id === value);
-                if (!it) {
-                  return (
-                    <>
-                      <MdiIcon name="shape" size={24} />
-                      <span>
-                        <span className="ha2-headline">{value}</span>
-                        <span className="ha2-support unknown-t">Unknown entity</span>
-                      </span>
-                    </>
-                  );
-                }
-                return (
-                  <>
-                    {it.badge}
-                    <span>
-                      {label && <span className="ha2-overline">{label}</span>}
-                      <span className="ha2-headline">{it.headline}</span>
-                      {it.support && <span className="ha2-support">{it.support}</span>}
-                    </span>
-                  </>
-                );
-              })()
             ) : (
-              <span className="ha2-placeholder">{placeholder}</span>
+              <SingleValue label={label} placeholder={placeholder} items={items} value={multi ? '' : (value ?? '')} />
             )}
           </span>
         )}
@@ -183,7 +199,9 @@ export function ComboBox({
           <div className="ha2-drop-search">
             <MdiIcon name="magnify" size={20} />
             <input
-              autoFocus
+              ref={(el) => {
+                el?.focus();
+              }}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={searchPlaceholder ?? 'Search'}
@@ -295,6 +313,14 @@ export function EntityMulti({
 
 /* ---------------- select ---------------- */
 
+function optValue(o: any): any {
+  return typeof o === 'string' ? o : o.value;
+}
+
+function optLabel(o: any): string {
+  return String(typeof o === 'string' ? o : (o.label ?? o.value));
+}
+
 export function SelectField({
   field,
   value,
@@ -306,9 +332,8 @@ export function SelectField({
 }) {
   const opts: any[] = field.selector?.options ?? [];
   const items: ComboItem[] = opts.map((o) => {
-    const v = typeof o === 'string' ? o : o.value;
-    const label = typeof o === 'string' ? o : (o.label ?? o.value);
-    return { id: String(v), headline: String(label) };
+    const v = optValue(o);
+    return { id: String(v), headline: optLabel(o) };
   });
   return (
     <ComboBox
@@ -316,7 +341,7 @@ export function SelectField({
       items={items}
       value={value == null ? '' : String(value)}
       onPick={(id) => {
-        const orig = opts.find((o) => String(typeof o === 'string' ? o : o.value) === id);
+        const orig = opts.find((o) => String(optValue(o)) === id);
         onChange(typeof orig === 'string' ? orig : (orig?.value ?? id));
       }}
       searchPlaceholder="Search options"
@@ -454,26 +479,40 @@ export function DurationField({
   const labels: Record<string, string> = { days: 'Days', hours: 'Hours', minutes: 'Minutes', seconds: 'Seconds' };
   return (
     <div className="ha2-dur">
-      {parts.map((p) => (
-        <div className="ha2-dur-part" key={p}>
-          <label>{labels[p]}</label>
-          <input
-            className="ha2-text ha2-num"
-            style={{ width: '100%', textAlign: 'left' }}
-            type="number"
-            min={0}
-            value={v[p] ?? 0}
-            onChange={(e) =>
-              onChange({ ...v, [p]: Math.max(0, Math.floor(Number(e.target.value) || 0)) })
-            }
-          />
-        </div>
-      ))}
+      {parts.map((p) => {
+        const id = `dur-${field.key}-${p}`;
+        return (
+          <div className="ha2-dur-part" key={p}>
+            <label htmlFor={id}>{labels[p]}</label>
+            <input
+              id={id}
+              className="ha2-text ha2-num"
+              style={{ width: '100%', textAlign: 'left' }}
+              type="number"
+              min={0}
+              value={v[p] ?? 0}
+              onChange={(e) =>
+                onChange({ ...v, [p]: Math.max(0, Math.floor(Number(e.target.value) || 0)) })
+              }
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 /* ---------------- condition / action ---------------- */
+
+/** Demo row keys are UI-only; strip before display/export. */
+function stripId<T>(item: T): T {
+  if (item && typeof item === 'object' && 'id' in item) {
+    const copy = { ...(item as Record<string, any>) };
+    delete copy.id;
+    return copy as T;
+  }
+  return item;
+}
 
 export function ConditionActionField({
   kind,
@@ -484,27 +523,31 @@ export function ConditionActionField({
   value: any;
   onChange: (v: any) => void;
 }) {
-  const arr: any[] = Array.isArray(value) ? value : [];
-  const add = () =>
-    onChange([
-      ...arr,
+  const raw: any[] = Array.isArray(value) ? value : [];
+  // Stable keys: items added here carry an id; anything else (e.g. restored
+  // drafts) falls back to a deterministic position id.
+  const arr = raw.map((item, i) => ({ ...item, id: item.id ?? `local-${i}` }));
+  const add = () => {
+    const item =
       kind === 'condition'
-        ? { condition: 'state', entity_id: '' }
-        : { action: 'notify.notify', data: { message: 'Hello' } },
-    ]);
+        ? { id: crypto.randomUUID(), condition: 'state', entity_id: '' }
+        : { id: crypto.randomUUID(), action: 'notify.notify', data: { message: 'Hello' } };
+    onChange([...arr, item]);
+  };
+  const removeAt = (id: string) => onChange(arr.filter((item) => item.id !== id));
   return (
     <div>
       {arr.length === 0 && <div className="ha2-empty-note">No {kind}s — optional.</div>}
       {arr.map((item, i) => (
-        <div className="ha2-yamlitem" key={i}>
+        <div className="ha2-yamlitem" key={item.id}>
           <span>
-            {i + 1}. {JSON.stringify(item).slice(0, 90)}
+            {i + 1}. {JSON.stringify(stripId(item)).slice(0, 90)}
           </span>
           <button
             type="button"
             className="ha2-x"
             aria-label="Remove"
-            onClick={() => onChange(arr.filter((_, j) => j !== i))}
+            onClick={() => removeAt(item.id)}
           >
             <MdiIcon name="close" size={18} />
           </button>
@@ -519,11 +562,20 @@ export function ConditionActionField({
 
 /* ---------------- colour ---------------- */
 
-export function ColorRgbField({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+export function ColorRgbField({
+  inputId,
+  value,
+  onChange,
+}: {
+  inputId?: string;
+  value: any;
+  onChange: (v: any) => void;
+}) {
   const rgb = Array.isArray(value) ? value : [255, 214, 170];
   return (
     <div className="ha2-colortop">
       <input
+        id={inputId}
         type="color"
         className="ha2-colorwell"
         title="Pick colour"
@@ -582,69 +634,89 @@ export function ColorTempField({
 
 /* ---------------- colour object list ---------------- */
 
-export function ObjectListField({ value, onChange }: { value: any; onChange: (v: any) => void }) {
-  const arr: any[] = Array.isArray(value) ? value : [];
-  const move = (i: number, dir: number) => {
+export function ObjectListField({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  value: any;
+  onChange: (v: any) => void;
+}) {
+  const raw: any[] = Array.isArray(value) ? value : [];
+  // Stable keys keep text inputs and focus on the right row when reordering.
+  // Defaults have no ids, so derive deterministic ones; ids never reach YAML.
+  const arr = raw.map((item, i) => ({ ...item, id: item.id ?? `${idPrefix}:${i}` }));
+  const move = (id: string, dir: number) => {
+    const i = arr.findIndex((item) => item.id === id);
     const j = i + dir;
-    if (j < 0 || j >= arr.length) return;
+    if (i < 0 || j < 0 || j >= arr.length) return;
     const next = [...arr];
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   };
+  const patch = (id: string, p: Record<string, any>) =>
+    onChange(arr.map((item) => (item.id === id ? { ...item, ...p } : item)));
   return (
     <div>
-      {arr.map((item, i) => (
-        <div className="ha2-obj" key={i}>
-          <div className="ha2-obj-head">
-            <span className="grip">
-              <MdiIcon name="drag" size={18} />
-            </span>
-            <span className="ha2-obj-dot" style={{ background: rgbToCss(item?.colour) }} />
-            <b>{item?.name || `Colour ${i + 1}`}</b>
-            <button type="button" className="ha2-x" aria-label="Move up" onClick={() => move(i, -1)}>
-              <MdiIcon name="chevron-up" size={18} />
-            </button>
-            <button type="button" className="ha2-x" aria-label="Move down" onClick={() => move(i, 1)}>
-              <MdiIcon name="chevron-down" size={18} />
-            </button>
-            <button
-              type="button"
-              className="ha2-x"
-              aria-label="Remove"
-              onClick={() => onChange(arr.filter((_, j) => j !== i))}
-            >
-              <MdiIcon name="close" size={18} />
-            </button>
-          </div>
-          <div className="ha2-obj-body">
-            <div>
-              <label>Name</label>
-              <input
-                className="ha2-text"
-                style={{ minHeight: 48 }}
-                value={item?.name ?? ''}
-                onChange={(e) =>
-                  onChange(arr.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                }
-              />
+      {arr.map((item, i) => {
+        const nameId = `${idPrefix}-name-${item.id}`;
+        const colourId = `${idPrefix}-colour-${item.id}`;
+        return (
+          <div className="ha2-obj" key={item.id}>
+            <div className="ha2-obj-head">
+              <span className="grip">
+                <MdiIcon name="drag" size={18} />
+              </span>
+              <span className="ha2-obj-dot" style={{ background: rgbToCss(item?.colour) }} />
+              <b>{item?.name || `Colour ${i + 1}`}</b>
+              <button type="button" className="ha2-x" aria-label="Move up" onClick={() => move(item.id, -1)}>
+                <MdiIcon name="chevron-up" size={18} />
+              </button>
+              <button type="button" className="ha2-x" aria-label="Move down" onClick={() => move(item.id, 1)}>
+                <MdiIcon name="chevron-down" size={18} />
+              </button>
+              <button
+                type="button"
+                className="ha2-x"
+                aria-label="Remove"
+                onClick={() => onChange(arr.filter((x) => x.id !== item.id))}
+              >
+                <MdiIcon name="close" size={18} />
+              </button>
             </div>
-            <div>
-              <label>Colour</label>
-              <ColorRgbField
-                value={item?.colour}
-                onChange={(c) => onChange(arr.map((x, j) => (j === i ? { ...x, colour: c } : x)))}
-              />
+            <div className="ha2-obj-body">
+              <div>
+                <label htmlFor={nameId}>Name</label>
+                <input
+                  id={nameId}
+                  className="ha2-text"
+                  style={{ minHeight: 48 }}
+                  value={item?.name ?? ''}
+                  onChange={(e) => patch(item.id, { name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label htmlFor={colourId}>Colour</label>
+                <ColorRgbField
+                  inputId={colourId}
+                  value={item?.colour}
+                  onChange={(c) => patch(item.id, { colour: c })}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {arr.length === 0 && (
         <div className="ha2-empty-note">Empty — HA ignores this preset's colours when duplicating.</div>
       )}
       <button
         type="button"
         className="ha2-add"
-        onClick={() => onChange([...arr, { name: `Colour ${arr.length + 1}`, colour: [255, 214, 170] }])}
+        onClick={() =>
+          onChange([...arr, { id: crypto.randomUUID(), name: `Colour ${arr.length + 1}`, colour: [255, 214, 170] }])
+        }
       >
         <MdiIcon name="plus" size={18} /> Add colour
       </button>
@@ -689,7 +761,7 @@ export function FieldControl({
     case 'color_temp':
       return <ColorTempField field={field} value={value} onChange={onChange} />;
     case 'object':
-      return <ObjectListField value={value} onChange={onChange} />;
+      return <ObjectListField idPrefix={field.key} value={value} onChange={onChange} />;
     default:
       return (
         <input
