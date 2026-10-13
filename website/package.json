@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "data:build": "bun scripts/parse-blueprints.ts",
     "check": "astro check",
+    "typecheck": "tsc --noEmit",
     "test": "bun test ./scripts/blueprints.test.ts"
   },
   "dependencies": {
@@ -19,8 +20,9 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
+    "@types/node": "^22",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
   }
 }

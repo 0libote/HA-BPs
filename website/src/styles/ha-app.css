@@ -288,10 +288,11 @@ input.ha2-num {
   padding: 6px 8px;
   outline: 0;
   text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 input.ha2-num:focus { border-bottom: 2px solid var(--ha2-primary); }
 input.ha2-num::-webkit-outer-spin-button, input.ha2-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-input.ha2-num { -moz-appearance: textfield; appearance: textfield; }
 .ha2-unit { color: var(--ha2-text-secondary); font-size: 13px; margin-left: 8px; flex-shrink: 0; }
 
 /* ---------- switch (mirrors ha-switch) ---------- */

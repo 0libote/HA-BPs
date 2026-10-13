@@ -7,6 +7,8 @@ export interface MockEntity {
   state: string;
 }
 
+const PRESET_DIRECTIONS = ['Right', 'Left', 'Centre'] as const;
+
 export const MOCK_ENTITIES: MockEntity[] = [
   // doorbell
   { entity_id: 'binary_sensor.front_door_doorbell', friendly: 'Front Door Doorbell', domain: 'binary_sensor', state: 'off' },
@@ -25,7 +27,7 @@ export const MOCK_ENTITIES: MockEntity[] = [
   ...[1, 2, 3].flatMap((preset) =>
     [1, 2, 3].map((b) => ({
       entity_id: `event.bilresa_preset_${preset}_button_${b}`,
-      friendly: `BILRESA Preset ${preset} ${b === 1 ? 'Right' : b === 2 ? 'Left' : 'Centre'}`,
+      friendly: `BILRESA Preset ${preset} ${PRESET_DIRECTIONS[b - 1] ?? ''}`.trim(),
       domain: 'event',
       device_class: 'button',
       state: 'unknown',
@@ -72,5 +74,9 @@ export function rgbToHex(rgb: any): string {
 export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  return [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)];
+  return [
+    Number.parseInt(full.slice(0, 2), 16),
+    Number.parseInt(full.slice(2, 4), 16),
+    Number.parseInt(full.slice(4, 6), 16),
+  ];
 }

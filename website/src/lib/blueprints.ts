@@ -67,7 +67,7 @@ export const bpIcon: Record<string, string> = {
 };
 
 export function defaultValueFor(field: BpField): any {
-  if (field.default !== null && field.default !== undefined) return structuredCloneSafe(field.default);
+  if (field.default !== null && field.default !== undefined) return structuredClone(field.default);
   switch (field.selectorType) {
     case 'boolean': return false;
     case 'number': return field.selector?.min ?? 0;
@@ -75,18 +75,10 @@ export function defaultValueFor(field: BpField): any {
     case 'entity': return field.selector?.multiple ? [] : '';
     case 'select': return field.selector?.options?.[0]?.value ?? field.selector?.options?.[0] ?? '';
     case 'duration': return { hours: 0, minutes: 0, seconds: 0 };
-    case 'object': return Array.isArray(field.default) ? structuredCloneSafe(field.default) : [];
+    case 'object': return Array.isArray(field.default) ? structuredClone(field.default) : [];
     case 'color_rgb': return [255, 214, 170];
     case 'color_temp': return field.selector?.min ?? 2700;
     default: return field.selector?.multiple ? [] : '';
-  }
-}
-
-function structuredCloneSafe<T>(v: T): T {
-  try {
-    return JSON.parse(JSON.stringify(v));
-  } catch {
-    return v;
   }
 }
 

@@ -35,25 +35,33 @@ if (existsSync(out)) {
   } catch { /* ignore */ }
 }
 
-const icons = {};
-let failed = 0;
-for (const name of WANT) {
+async function fetchOne(name, prev) {
   try {
     const res = await fetch(`https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/${name}.svg`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const svg = await res.text();
     const ds = [...svg.matchAll(/d="([^"]+)"/g)].map((m) => m[1]);
     if (!ds.length) throw new Error('no path data');
-    icons[name] = ds.join(' ');
-    console.log(`ok  ${name} (${ds.length} subpath${ds.length > 1 ? 's' : ''})`);
+    return { name, d: ds.join(' '), subpaths: ds.length };
   } catch (err) {
-    if (prev[name]) {
-      icons[name] = prev[name];
-      console.log(`keep ${name} (fetch failed: ${err})`);
-    } else {
-      failed++;
-      console.log(`FAIL ${name}: ${err}`);
-    }
+    if (prev[name]) return { name, d: prev[name], kept: true, err: String(err) };
+    return { name, err: String(err) };
+  }
+}
+
+const results = await Promise.all(WANT.map((name) => fetchOne(name, prev)));
+const icons = {};
+let failed = 0;
+for (const r of results) {
+  if (!r.d) {
+    failed++;
+    console.log(`FAIL ${r.name}: ${r.err}`);
+  } else if (r.kept) {
+    icons[r.name] = r.d;
+    console.log(`keep ${r.name} (fetch failed: ${r.err})`);
+  } else {
+    icons[r.name] = r.d;
+    console.log(`ok  ${r.name} (${r.subpaths} subpath${r.subpaths > 1 ? 's' : ''})`);
   }
 }
 
