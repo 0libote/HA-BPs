@@ -34,12 +34,12 @@ function SingleValue({
   placeholder,
   items,
   value,
-}: {
+}: Readonly<{
   label?: string;
   placeholder: string;
-  items: ComboItem[];
+  items: readonly ComboItem[];
   value: string;
-}) {
+}>) {
   if (!value) return <span className="ha2-placeholder">{placeholder}</span>;
   const it = items.find((i) => i.id === value);
   if (!it) {
@@ -580,11 +580,11 @@ export function ColorRgbField({
   inputId,
   value,
   onChange,
-}: {
+}: Readonly<{
   inputId?: string;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const rgb = Array.isArray(value) ? value : [255, 214, 170];
   return (
     <div className="ha2-colortop">
@@ -652,11 +652,11 @@ export function ObjectListField({
   idPrefix,
   value,
   onChange,
-}: {
+}: Readonly<{
   idPrefix: string;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const instanceId = useId();
   const { rows, update, add } = useKeyedRows(value, onChange);
   const move = (key: number, dir: number) => {
