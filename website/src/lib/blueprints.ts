@@ -88,22 +88,6 @@ export function initialValues(bp: Blueprint): Record<string, any> {
   return out;
 }
 
-/**
- * Interactive lists carry UI-only row ids (stable React keys); they must not
- * leak into exported automation YAML. Our schemas never use `id` as data.
- */
-function stripRowIds(v: any): any {
-  if (Array.isArray(v)) return v.map(stripRowIds);
-  if (v && typeof v === 'object') {
-    const out: Record<string, any> = {};
-    for (const [k, val] of Object.entries(v)) {
-      if (k !== 'id') out[k] = stripRowIds(val);
-    }
-    return out;
-  }
-  return v;
-}
-
 /** Build a HA-style automation YAML preview from current showcase values. */
 export function buildAutomationYaml(bp: Blueprint, values: Record<string, any>, automationName: string): string {
   const inputs: Record<string, any> = {};
@@ -115,7 +99,7 @@ export function buildAutomationYaml(bp: Blueprint, values: Record<string, any>, 
           Array.isArray(value) && value.length === 0) continue;
       if (Array.isArray(value) && value.length === 0 &&
           Array.isArray(field.default) && field.default.length === 0) continue;
-      inputs[field.key] = stripRowIds(value);
+      inputs[field.key] = value;
     }
   }
   // Let YAML handle quoting and nested user actions. Inherit execution mode
