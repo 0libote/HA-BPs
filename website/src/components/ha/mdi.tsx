@@ -4,7 +4,7 @@ import mdi from '../../data/mdi.json';
 const ICONS: Record<string, string> = (mdi as any).icons ?? {};
 
 /** Real Material Design Icon path data (fetched at build time, see scripts/fetch-icons.mjs). */
-export function MdiIcon({ name, size = 24 }: { name: string; size?: number }) {
+export function MdiIcon({ name, size = 24 }: Readonly<{ name: string; size?: number }>) {
   const d = ICONS[name] ?? ICONS.tune;
   if (!d) return null;
   return (

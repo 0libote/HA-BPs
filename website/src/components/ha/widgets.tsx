@@ -14,7 +14,7 @@ const DOMAIN_BADGE: Record<string, { icon: string; bg: string }> = {
   event: { icon: 'remote', bg: '#4a4a52' },
 };
 
-export function EntityBadge({ entity, size = 36 }: { entity: MockEntity; size?: number }) {
+export function EntityBadge({ entity, size = 36 }: Readonly<{ entity: MockEntity; size?: number }>) {
   const b = DOMAIN_BADGE[entity.domain] ?? { icon: 'shape', bg: '#4a4a52' };
   return (
     <span className="ha2-badge" style={{ background: b.bg, width: size, height: size }}>
@@ -106,7 +106,7 @@ export function ComboBox({
   onClear,
   renderValue,
   searchPlaceholder,
-}: {
+}: Readonly<{
   label?: string;
   placeholder: string;
   items: ComboItem[];
@@ -117,7 +117,7 @@ export function ComboBox({
   onClear?: () => void;
   renderValue?: () => React.ReactNode;
   searchPlaceholder?: string;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -269,11 +269,11 @@ export function EntitySingle({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const entities = useMemo(() => filterEntities(field.selector?.filter), [field]);
   const items = useMemo(() => entityItems(entities), [entities]);
   return (
@@ -292,11 +292,11 @@ export function EntityMulti({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const entities = useMemo(() => filterEntities(field.selector?.filter), [field]);
   const items = useMemo(() => entityItems(entities), [entities]);
   const arr: string[] = Array.isArray(value) ? value : [];
@@ -328,11 +328,11 @@ export function SelectField({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const opts: any[] = field.selector?.options ?? [];
   const items: ComboItem[] = opts.map((o) => {
     const v = optValue(o);
@@ -358,11 +358,11 @@ export function NumberField({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const s = field.selector ?? {};
   const isBox = s.mode === 'box' || s.min === undefined || s.max === undefined;
   const unit = s.unit_of_measurement ?? '';
@@ -428,11 +428,11 @@ export function TextField({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   if (field.selector?.multiline) {
     return (
       <textarea
@@ -454,7 +454,7 @@ export function TextField({
 
 /* ---------------- boolean ---------------- */
 
-export function BooleanField({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+export function BooleanField({ value, onChange }: Readonly<{ value: any; onChange: (v: any) => void }>) {
   return (
     <div className="ha2-switch-row">
       <span className="ha2-switch">
@@ -472,11 +472,11 @@ export function DurationField({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const v = typeof value === 'object' && value !== null ? value : {};
   const parts = [...(field.selector?.enable_day ? ['days'] : []), 'hours', 'minutes', 'seconds'];
   const labels: Record<string, string> = { days: 'Days', hours: 'Hours', minutes: 'Minutes', seconds: 'Seconds' };
@@ -535,11 +535,11 @@ export function ConditionActionField({
   kind,
   value,
   onChange,
-}: {
+}: Readonly<{
   kind: string;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const { rows, update, add: addRow } = useKeyedRows(value, onChange);
   const add = () => {
     const item =
@@ -608,11 +608,11 @@ export function ColorTempField({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   const s = field.selector ?? {};
   const min = s.min ?? 2000;
   const max = s.max ?? 6500;
@@ -743,11 +743,11 @@ export function FieldControl({
   field,
   value,
   onChange,
-}: {
+}: Readonly<{
   field: BpField;
   value: any;
   onChange: (v: any) => void;
-}) {
+}>) {
   switch (field.selectorType) {
     case 'entity':
       return field.selector?.multiple ? (

@@ -12,43 +12,56 @@ function sectionIcon(icon: string): string {
   return icon.replace(/^mdi:/, '') || 'tune';
 }
 
+/** Stable key for text fragments that have no id (position is identity here). */
+function fragKey(seen: Map<string, number>, scope: string, value: string): string {
+  const k = `${scope}:${value}`;
+  const n = (seen.get(k) ?? 0) + 1;
+  seen.set(k, n);
+  return `${scope}-${value.length}-${n}-${value.slice(0, 32)}`;
+}
+
 /** Tiny inline-code formatter for blueprint help texts (`code` → <code>). */
 function rich(text: string): React.ReactNode {
   if (!text) return null;
   const parts = text.split('`');
   if (parts.length === 1) return text;
+  const seen = new Map<string, number>();
   return parts.map((p, i) =>
     i % 2 === 1 ? (
       <code
-        key={i}
+        key={fragKey(seen, 'code', p)}
         style={{ fontFamily: 'var(--ha2-mono)', fontSize: '0.92em', color: '#8fd4f5' }}
       >
         {p}
       </code>
     ) : (
-      <React.Fragment key={i}>{p}</React.Fragment>
+      <React.Fragment key={fragKey(seen, 'text', p)}>{p}</React.Fragment>
     ),
   );
 }
 
 /** Plain-text description with bare URLs linkified. */
-function Description({ text }: { text: string }) {
+function Description({ text }: Readonly<{ text: string }>) {
   const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const seenPara = new Map<string, number>();
   return (
     <>
-      {paras.map((p, i) => (
-        <p key={i}>
-          {p.split(/(https?:\/\/[^\s)]+)/g).map((chunk, j) =>
-            /^https?:\/\//.test(chunk) ? (
-              <a key={j} href={chunk} target="_blank" rel="noreferrer" style={{ color: 'var(--ha2-primary)' }}>
-                {chunk}
-              </a>
-            ) : (
-              <React.Fragment key={j}>{rich(chunk)}</React.Fragment>
-            ),
-          )}
-        </p>
-      ))}
+      {paras.map((p) => {
+        const seenChunk = new Map<string, number>();
+        return (
+          <p key={fragKey(seenPara, 'para', p)}>
+            {p.split(/(https?:\/\/[^\s)]+)/g).map((chunk) =>
+              /^https?:\/\//.test(chunk) ? (
+                <a key={fragKey(seenChunk, 'link', chunk)} href={chunk} target="_blank" rel="noreferrer" style={{ color: 'var(--ha2-primary)' }}>
+                  {chunk}
+                </a>
+              ) : (
+                <React.Fragment key={fragKey(seenChunk, 'text', chunk)}>{rich(chunk)}</React.Fragment>
+              ),
+            )}
+          </p>
+        );
+      })}
     </>
   );
 }
@@ -58,7 +71,7 @@ export interface ShowcaseAppProps {
   storeKey?: string;
 }
 
-export default function ShowcaseApp({ blueprint, storeKey }: ShowcaseAppProps) {
+export default function ShowcaseApp({ blueprint, storeKey }: Readonly<ShowcaseAppProps>) {
   const key = storeKey ?? `showcase:${blueprint.slug}`;
   const [values, setValues] = useState<Record<string, any>>(() => initialValues(blueprint));
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
@@ -96,12 +109,8 @@ export default function ShowcaseApp({ blueprint, storeKey }: ShowcaseAppProps) {
     try {
       await navigator.clipboard.writeText(yaml);
     } catch {
-      const ta = document.createElement('textarea');
-      ta.value = yaml;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
+      // Clipboard API unavailable (e.g. insecure context) — nothing else to do.
+      return;
     }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);

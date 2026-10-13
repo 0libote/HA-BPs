@@ -3,7 +3,45 @@ const esc = (s: string): string =>
   s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 function linkify(s: string): string {
-  return esc(s).replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  const e = esc(s);
+  let out = '';
+  let i = 0;
+  while (i < e.length) {
+    const open = e.indexOf('[', i);
+    if (open === -1) {
+      out += e.slice(i);
+      break;
+    }
+    const mid = e.indexOf('](', open + 1);
+    if (mid === -1) {
+      out += e.slice(i);
+      break;
+    }
+    const close = e.indexOf(')', mid + 2);
+    if (close === -1) {
+      out += e.slice(i);
+      break;
+    }
+    const label = e.slice(open + 1, mid);
+    const url = e.slice(mid + 2, close);
+    const badUrl =
+      !label ||
+      !url ||
+      url.includes(' ') ||
+      url.includes('\t') ||
+      url.includes('\n') ||
+      url.includes('<') ||
+      url.includes('>');
+    if (badUrl) {
+      out += e.slice(i, mid + 2);
+      i = mid + 2;
+      continue;
+    }
+    out += e.slice(i, open);
+    out += `<a href="${url}">${label}</a>`;
+    i = close + 1;
+  }
+  return out;
 }
 
 function inline(s: string): string {
