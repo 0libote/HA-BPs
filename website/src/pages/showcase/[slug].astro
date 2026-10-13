@@ -1,4 +1,6 @@
 ---
+import HABase from '../../layouts/HABase.astro';
+import Icon from '../../components/Icon.astro';
 import ShowcaseApp from '../../components/ha/ShowcaseApp';
 import { blueprints, getBlueprint } from '../../lib/blueprints';
 import '../../styles/ha-app.css';
@@ -10,27 +12,26 @@ export function getStaticPaths() {
 const { slug } = Astro.params;
 const bp = getBlueprint(slug ?? '');
 if (!bp) throw new Error(`Unknown blueprint: ${slug}`);
-const all = blueprints.map((b) => ({ slug: b.slug, name: b.name, file: b.file }));
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{bp.name} — showcase</title>
-    <meta name="description" content={`Try every setting of the ${bp.name} blueprint in a working replica of Home Assistant's editor.`} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap"
-    />
-  </head>
-  <body style="margin: 0; background: #111111;">
-    <p style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">
-      Interactive demo replica of Home Assistant's automation editor for {bp.name}, running on mock entities.
-    </p>
-    <ShowcaseApp blueprint={bp} all={all} client:load />
-  </body>
-</html>
+<HABase title={`${bp.name} — showcase`} active="showcase" wide>
+  <div class="crumb-row">
+    <a class="link-quiet" href="/showcase"><Icon name="arrowLeft" size={14} /> All blueprints</a>
+    <div class="links">
+      <a class="link-quiet" href={`/docs/${bp.slug}`}>Docs</a>
+      <a class="ha-btn small" href={bp.importUrl} target="_blank" rel="noreferrer"><Icon name="download" size={14} /> Import in HA</a>
+    </div>
+  </div>
+
+  <div class="masthead">
+    <p class="kicker">Showcase<span class="sep">/</span><span class="mono">{bp.file}</span></p>
+    <h1>{bp.name}</h1>
+  </div>
+
+  <ShowcaseApp blueprint={bp} client:load />
+
+  <p class="footnote">
+    Sections open and collapse exactly as declared in <span class="mono">{bp.file}</span>.
+    Entity pickers only list domains the blueprint's filter allows. The YAML panel shows
+    what HA would store for an automation built from this blueprint.
+  </p>
+</HABase>

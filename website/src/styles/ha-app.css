@@ -2,7 +2,7 @@
    component anatomy (blueprint-generic-editor, ha-expansion-panel,
    ha-settings-row, ha-picker-field, ha-sidebar, save FAB). Dark theme. */
 
-.ha-app2 {
+.ha2-scope {
   --ha2-primary: #03a9f4;
   --ha2-bg: #111111;
   --ha2-sidebar-bg: #161618;
@@ -25,212 +25,10 @@
   font-family: var(--ha2-font);
   font-size: 14px;
   line-height: 1.5;
-  min-height: 100vh;
-  display: flex;
   -webkit-font-smoothing: antialiased;
 }
-.ha-app2 * { box-sizing: border-box; }
-.ha-app2 button { font-family: inherit; }
-
-/* ---------- sidebar (mirrors ha-sidebar, collapsed rail + expanded) ---------- */
-.ha2-sidebar {
-  width: 60px;
-  flex-shrink: 0;
-  background: var(--ha2-sidebar-bg);
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow: hidden;
-  transition: width 0.25s ease;
-  z-index: 40;
-}
-.ha2-sidebar.expanded { width: 252px; }
-.ha2-side-menu {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  padding: 0 4px 0 8px;
-  border-bottom: 1px solid var(--ha2-divider);
-  flex-shrink: 0;
-}
-.ha2-iconbtn {
-  background: transparent;
-  border: 0;
-  color: var(--ha2-text-secondary);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.ha2-iconbtn:hover { background: rgba(255, 255, 255, 0.08); color: var(--ha2-text); }
-.ha2-side-title {
-  font-size: 20px;
-  margin-left: 3px;
-  white-space: nowrap;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition: opacity 0.25s ease;
-}
-.ha2-sidebar.expanded .ha2-side-title { opacity: 1; max-width: 200px; }
-.ha2-panels { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; display: flex; flex-direction: column; }
-.ha2-spacer { margin-top: auto; }
-.ha2-panel-item {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  height: 40px;
-  margin: 0 4px 4px;
-  padding: 0 0 0 8px;
-  border-radius: var(--ha2-radius-sm);
-  color: var(--ha2-text-secondary);
-  text-decoration: none;
-  position: relative;
-  white-space: nowrap;
-  background: transparent;
-  border: 0;
-  width: calc(100% - 8px);
-  cursor: pointer;
-  text-align: left;
-  font-size: 14px;
-}
-.ha2-panel-item:hover { text-decoration: none; }
-.ha2-panel-item .lbl {
-  font-weight: 500;
-  margin-left: 12px;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition: opacity 0.25s ease;
-}
-.ha2-sidebar.expanded .ha2-panel-item .lbl { opacity: 1; max-width: 180px; }
-.ha2-panel-item.selected { color: var(--ha2-primary); }
-.ha2-panel-item.selected::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--ha2-radius-sm);
-  background-color: var(--ha2-primary);
-  opacity: 0.12;
-  pointer-events: none;
-}
-.ha2-userbadge {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #4a4a52;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 500;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-@media (max-width: 900px) {
-  .ha2-sidebar {
-    position: fixed;
-    left: 0;
-    transform: translateX(-100%);
-    width: 252px !important;
-    transition: transform 0.25s ease;
-  }
-  .ha2-sidebar.drawer-open { transform: none; box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5); }
-  .ha2-sidebar.drawer-open .ha2-side-title,
-  .ha2-sidebar.drawer-open .ha2-panel-item .lbl { opacity: 1; max-width: 200px; }
-  .ha2-scrim {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 30;
-  }
-}
-
-/* ---------- main column + subpage header ---------- */
-.ha2-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
-.ha2-subpage {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--ha2-bg);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 64px;
-  padding: 0 12px 0 4px;
-}
-.ha2-doc-title {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: 0;
-  outline: 0;
-  color: var(--ha2-text);
-  font-size: 20px;
-  font-weight: 500;
-  font-family: inherit;
-  padding: 8px;
-  border-radius: var(--ha2-radius-sm);
-  text-overflow: ellipsis;
-}
-.ha2-doc-title:hover { background: rgba(255, 255, 255, 0.06); }
-.ha2-doc-title:focus { background: var(--ha2-field-bg); }
-.ha2-menu-pop {
-  position: relative;
-}
-.ha2-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  min-width: 250px;
-  background: #2b2b30;
-  border-radius: var(--ha2-radius-sm);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
-  padding: 8px 0;
-  z-index: 60;
-}
-.ha2-menu button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  background: transparent;
-  border: 0;
-  color: var(--ha2-text);
-  font-size: 14px;
-  padding: 10px 16px;
-  cursor: pointer;
-  text-align: left;
-}
-.ha2-menu button:hover { background: rgba(255, 255, 255, 0.07); }
-.ha2-menu button svg { color: var(--ha2-text-secondary); }
-.ha2-menu a.rowlink {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  color: var(--ha2-text);
-  font-size: 14px;
-  padding: 10px 16px;
-  text-decoration: none;
-  box-sizing: border-box;
-}
-.ha2-menu a.rowlink:hover { background: rgba(255, 255, 255, 0.07); text-decoration: none; }
-.ha2-menu a.rowlink svg { color: var(--ha2-text-secondary); }
-.ha2-only-mobile { display: none; }
-@media (max-width: 900px) {
-  .ha2-only-mobile { display: grid; }
-}
-.ha2-content {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 8px 16px 120px;
-}
+.ha2-scope * { box-sizing: border-box; }
+.ha2-scope button { font-family: inherit; }
 
 /* ---------- blueprint card (mirrors blueprint-generic-editor) ---------- */
 .ha2-card {
@@ -567,43 +365,20 @@ input.ha2-num { -moz-appearance: textfield; appearance: textfield; }
 .ha2-yamlitem span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ha2-empty-note { color: var(--ha2-text-secondary); font-size: 13px; padding: 4px 0 10px; }
 
-/* ---------- save FAB (mirrors blueprint editor save fab) ---------- */
-.ha2-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 60;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 48px;
-  padding: 0 22px 0 18px;
-  border: 0;
-  border-radius: 24px;
-  background: var(--ha2-primary);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-  font-family: inherit;
-}
-.ha2-fab:hover { filter: brightness(1.1); }
 
-/* ---------- yaml mode ---------- */
-.ha2-yamlpre {
-  margin: 0;
-  background: #0c0c0e;
-  border: 1px solid var(--ha2-outline);
-  border-radius: var(--ha2-radius-lg);
-  padding: 16px;
-  overflow: auto;
-  font-family: var(--ha2-mono);
-  font-size: 12.5px;
-  line-height: 1.65;
-  color: #c9c9d1;
-  max-height: 60vh;
+/* ---------- demo toolbar + layout (site chrome around the HA-styled form) ---------- */
+.ha2-demo-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin: 14px 0 16px;
 }
-.ha2-caption { color: var(--ha2-text-disabled); font-size: 12.5px; margin: 16px 2px 0; }
-.ha2-caption a { color: var(--ha2-primary); }
+.ha2-demo-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ha2-demo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .ha2-demo-grid { grid-template-columns: 1fr; } }
+.ha2-yaml-side { position: sticky; top: 74px; }
+@media (max-width: 1100px) { .ha2-yaml-side { position: static; } }
+.ha2-name-row { margin-bottom: 12px; }
+.ha2-name-row label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
