@@ -284,7 +284,7 @@ blueprint:
           selector:
             number:
               min: 1
-              max: 250
+              max: 100
               step: 1
               unit_of_measurement: "%"
               mode: slider
@@ -296,7 +296,7 @@ blueprint:
           selector:
             number:
               min: 1
-              max: 250
+              max: 100
               step: 1
               unit_of_measurement: "%"
               mode: slider
@@ -862,12 +862,14 @@ actions:
                       {{ (state_attr(repeat.item, 'supported_color_modes') or []) | count > 0 and
                          state_attr(repeat.item, 'supported_color_modes') != ['onoff'] }}
                     requested_brightness: >-
+                      {% set low = [[low_brightness | float(1), 1] | max, 100] | min %}
+                      {% set high = [[high_brightness | float(100), 1] | max, 100] | min %}
                       {% if is_state(repeat.item, 'off') %}
-                        {{ low_brightness | int }}
+                        {{ [low, high] | min | round(0) | int }}
                       {% else %}
                         {% set current = state_attr(repeat.item, 'brightness') | int(1) / 255 * 100 %}
                         {% set direction = 1 if trigger.id.endswith('_right') else -1 %}
-                        {{ [high_brightness, [low_brightness,
+                        {{ [high, [low,
                             current + direction * brightness_step | float * scroll_clicks | int] | max]
                             | min | round(0) | int }}
                       {% endif %}

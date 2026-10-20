@@ -137,9 +137,10 @@ https://github.com/0libote/HA-BPs/blob/main/blueprints/myggspray-auto-lights.yam
 ```
 
 This blueprint starts a motion-lighting session when any selected motion
-detector reports activity, at least one selected illuminance sensor says the
-room is dark enough, and every selected light is off and available. Motion-only
-detectors are supported because the illuminance entities are selected
+detector reports activity and every selected light is off and available.
+When illuminance sensors are selected, at least one of them must also say the
+room is dark enough; leave that selection empty for motion-only detectors.
+Motion-only detectors are supported because the illuminance entities are selected
 separately. It can remember the latest normal light profile, restore it before
 switch-off and release control after manual changes, unavailable entities or an
 overlong session. Faults leave remaining lights on. The default maximum-runtime
@@ -148,15 +149,15 @@ policy also leaves lights on; forced OFF is an explicit option.
 ### Before you start
 
 - Pair the MYGGSPRAY with Home Assistant through Matter-over-Thread.
-- Identify the occupancy or motion entities covering the area and at least one
-  illuminance entity. They do not have to belong to the same devices.
+- Identify the occupancy or motion entities covering the area. Optionally add
+  illuminance entities; they do not have to belong to the same devices.
 - Make sure the target lights can be controlled normally from Home Assistant.
 
 ### Configure
 
 1. Import the blueprint and select **Create automation**.
-2. Select one or more motion/occupancy sensors, one or more illuminance sensors,
-   and the target lights.
+2. Select one or more motion/occupancy sensors, optionally one or more
+   illuminance sensors, and the target lights.
 3. Choose the lux threshold, automation brightness and optional colour.
 4. Set the clear delay, maximum session runtime and the runtime-limit policy.
 5. Optionally add activation conditions, then save and test in a non-critical

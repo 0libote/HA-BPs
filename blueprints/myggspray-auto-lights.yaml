@@ -9,9 +9,10 @@ blueprint:
     GitHub: https://github.com/0libote/HA-BPs
 
     Behaviour:
-    - Starts when any selected motion detector reports motion, at least one
-      selected illuminance sensor is below the chosen threshold, and every
-      selected light is off and available.
+    - Starts when any selected motion detector reports motion, every
+      selected light is off and available, and (when illuminance sensors
+      are selected) at least one valid reading is below the chosen threshold.
+      Leave the illuminance selection empty for motion-only detectors.
     - Motion-only detectors are supported; illuminance can be supplied by
       separate detectors that expose light-level entities.
     - Sends brightness and colour in the same light.turn_on call, avoiding an
@@ -76,9 +77,11 @@ blueprint:
         illuminance_sensor:
           name: Illuminance Sensors
           description: |
-            Select one or more light-level entities. These can belong to
-            different detectors from the motion sensors. The lights may turn
-            on when at least one valid reading is below the threshold.
+            Select zero or more light-level entities. These can belong to
+            different detectors from the motion sensors. When empty, motion
+            always activates regardless of light level. Otherwise the lights
+            may turn on when at least one valid reading is below the threshold.
+          default: []
           selector:
             entity:
               multiple: true
@@ -354,7 +357,10 @@ actions:
                      old.attributes.get('effect') != new.attributes.get('effect') or
                      old.attributes.get('color_mode') != new.attributes.get('color_mode') or
                      old.attributes.get('rgb_color') != new.attributes.get('rgb_color') or
-                     old.attributes.get('color_temp_kelvin') != new.attributes.get('color_temp_kelvin')) %}
+                     old.attributes.get('hs_color') != new.attributes.get('hs_color') or
+                     old.attributes.get('xy_color') != new.attributes.get('xy_color') or
+                     old.attributes.get('color_temp_kelvin') != new.attributes.get('color_temp_kelvin') or
+                     old.attributes.get('color_temp') != new.attributes.get('color_temp')) %}
                   {% if changed and (new.context.user_id is not none or session_age | float(0) > 10) %}
                     {% set ns.takeover = true %}
                   {% endif %}
@@ -499,7 +505,7 @@ actions:
                   {% set ns.dark = true %}
                 {% endif %}
               {% endfor %}
-              {{ ns.dark }}
+              {{ illuminance_sensors | count == 0 or ns.dark }}
           - condition: and
             conditions: !input extra_activation_conditions
           - action: scene.create
