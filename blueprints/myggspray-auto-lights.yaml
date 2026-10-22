@@ -300,14 +300,14 @@ actions:
       session_active: "{{ states[active_scene_entity] is not none }}"
       sensors_healthy: >
         {{ motion_sensors | count > 0 and
-           expand(motion_sensors) | count == motion_sensors | unique | list | count and
+           expand(motion_sensors) | count >= motion_sensors | unique | list | count and
            expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
       lights_healthy: >
         {{ target_lights | count > 0 and
-           expand(target_lights) | count == target_lights | unique | list | count and
+           expand(target_lights) | count >= target_lights | unique | list | count and
            expand(target_lights) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
       override_clear: >
-        {{ expand(manual_override) | count == manual_override | unique | list | count and
+        {{ expand(manual_override) | count >= manual_override | unique | list | count and
            expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 }}
       clear_seconds: >
         {% if clear_duration is mapping %}

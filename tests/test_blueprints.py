@@ -131,6 +131,36 @@ def test_myggspray_supports_separate_sensor_groups() -> None:
     assert inputs["illuminance_sensor"]["selector"]["entity"]["multiple"] is True
 
 
+def test_myggspray_health_checks_allow_group_targets() -> None:
+    """Health checks must tolerate group inputs.
+
+    expand() resolves a group to its members, so the resolved count can exceed
+    the input count. Exact-count equality silently disables the automation for
+    group targets (e.g. a light group), so the comparison must be >= while
+    still rejecting unknown/unavailable states.
+    """
+    data = load_blueprint(ROOT / "blueprints/myggspray-auto-lights.yaml")
+    actions = data["actions"]
+    assert isinstance(actions, list)
+    templates = {}
+    for step in actions:
+        variables = step.get("variables") if isinstance(step, dict) else None
+        if not isinstance(variables, dict):
+            continue
+        for name in ("sensors_healthy", "lights_healthy", "override_clear"):
+            if name in variables:
+                templates[name] = variables[name]
+    assert set(templates) == {"sensors_healthy", "lights_healthy", "override_clear"}
+
+    for name, template in templates.items():
+        flat = " ".join(str(template).split())
+        assert "expand(" in flat
+        assert "| count >= " in flat, (
+            f"{name}: must use >= so group targets stay healthy"
+        )
+        assert "rejectattr" in flat
+
+
 def test_doorbell_supports_multiple_triggers_and_speakers() -> None:
     data = load_blueprint(ROOT / "blueprints/doorbell-announcement.yaml")
     inputs = flatten_inputs(data["blueprint"]["input"])
