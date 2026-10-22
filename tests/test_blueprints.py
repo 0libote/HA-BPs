@@ -9,6 +9,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_REF_RE = re.compile(r"!input\s+([A-Za-z0-9_]+)")
+EXPAND_SELF_COMPARISON_RE = re.compile(
+    r"expand\((?P<var>[A-Za-z0-9_]+)\)\s*\|\s*count\s*(?P<op>==|!=)\s*(?P=var)\s*\|"
+)
 BLUEPRINT_MARKER_RE = re.compile(r"(?m)^blueprint:\s*(?:#.*)?$")
 EXCLUDED_DIRS = {".git", ".github", ".venv", "venv", "ha-config", "__pycache__"}
 SOURCE_URL_BASE = "https://github.com/0libote/HA-BPs/blob/main/"
@@ -159,6 +162,26 @@ def test_myggspray_health_checks_allow_group_targets() -> None:
             f"{name}: must use >= so group targets stay healthy"
         )
         assert "rejectattr" in flat
+
+
+def test_expand_count_checks_allow_group_targets() -> None:
+    """No blueprint may compare expand() counts for (in)equality with inputs.
+
+    expand() resolves a group to its members, so `expand(x) | count == x`
+    is false for group targets and `!=` is always true for them. Compare
+    against the input count with >= / <, or compare filtered counts with 0.
+    """
+    offenders = []
+    for path in blueprint_files():
+        for lineno, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
+            if EXPAND_SELF_COMPARISON_RE.search(line):
+                offenders.append(f"{blueprint_id(path)}:{lineno}")
+    assert not offenders, (
+        "expand()/input count (in)equality breaks group targets: "
+        + ", ".join(offenders)
+    )
 
 
 def test_doorbell_supports_multiple_triggers_and_speakers() -> None:

@@ -178,7 +178,7 @@ actions:
             {% for sensor in expand(presence_sensors) | sort(attribute='entity_id') %}
               {% set ns.parts = ns.parts + [sensor.entity_id ~ '=' ~ sensor.last_changed] %}
             {% endfor %}
-            {{ expand(presence_sensors) | count == presence_sensors | unique | list | count and
+            {{ expand(presence_sensors) | count >= presence_sensors | unique | list | count and
                expand(presence_sensors) | rejectattr('state', 'eq', 'off') | list | count == 0 and
                ns.parts | join('|') == clear_state_signature and is_state(repeat.item, 'on') }}
         - action: light.turn_off

@@ -430,10 +430,10 @@ actions:
                           {% endif %}
                         {% endfor %}
                         {{ is_state(repeat.item, 'on') and
-                           expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                           expand(motion_sensors) | count >= motion_sensors | unique | list | count and
                            expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
                            expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 and
-                           expand(manual_override) | count == manual_override | unique | list | count and
+                           expand(manual_override) | count >= manual_override | unique | list | count and
                            (ns.clear or (runtime_expired and runtime_limit_action == 'turn_off')) }}
                     - variables:
                         remembered_scene: >
@@ -459,10 +459,10 @@ actions:
                       {% endif %}
                     {% endfor %}
                     {{ is_state(repeat.item, 'on') and
-                       expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                       expand(motion_sensors) | count >= motion_sensors | unique | list | count and
                        expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
                        expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 and
-                       expand(manual_override) | count == manual_override | unique | list | count and
+                       expand(manual_override) | count >= manual_override | unique | list | count and
                        (ns.clear or (runtime_expired and runtime_limit_action == 'turn_off')) }}
                 - action: light.turn_off
                   continue_on_error: true
@@ -522,10 +522,10 @@ actions:
                 - condition: template
                   value_template: >
                     {{ is_state(repeat.item, 'off') and
-                       expand(motion_sensors) | count == motion_sensors | unique | list | count and
+                       expand(motion_sensors) | count >= motion_sensors | unique | list | count and
                        expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count == 0 and
                        expand(motion_sensors) | selectattr('state', 'eq', 'on') | list | count > 0 and
-                       expand(manual_override) | count == manual_override | unique | list | count and
+                       expand(manual_override) | count >= manual_override | unique | list | count and
                        expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count == 0 }}
                 - variables:
                     light_data: >
@@ -551,9 +551,9 @@ actions:
                   data: "{{ light_data }}"
           - alias: Wait for light state feedback or an intervening override/fault
             wait_template: >
-              {{ expand(target_lights) | selectattr('state', 'eq', 'on') | list | count == target_lights | unique | list | count or
-                 expand(manual_override) | count != manual_override | unique | list | count or
-                 expand(motion_sensors) | count != motion_sensors | unique | list | count or
+              {{ expand(target_lights) | rejectattr('state', 'eq', 'on') | list | count == 0 or
+                 expand(manual_override) | count < manual_override | unique | list | count or
+                 expand(motion_sensors) | count < motion_sensors | unique | list | count or
                  expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count > 0 or
                  expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
             timeout:
@@ -561,9 +561,9 @@ actions:
             continue_on_timeout: true
           - if: >
               {{ not wait.completed or
-                 expand(target_lights) | selectattr('state', 'eq', 'on') | list | count != target_lights | unique | list | count or
-                 expand(manual_override) | count != manual_override | unique | list | count or
-                 expand(motion_sensors) | count != motion_sensors | unique | list | count or
+                 expand(target_lights) | rejectattr('state', 'eq', 'on') | list | count > 0 or
+                 expand(manual_override) | count < manual_override | unique | list | count or
+                 expand(motion_sensors) | count < motion_sensors | unique | list | count or
                  expand(manual_override) | rejectattr('state', 'eq', 'off') | list | count > 0 or
                  expand(motion_sensors) | rejectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
             then:

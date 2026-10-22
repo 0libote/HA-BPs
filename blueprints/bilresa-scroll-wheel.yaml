@@ -845,7 +845,7 @@ actions:
           entity_id: "{{ manual_override }}"
       - alias: Confirm manual priority before changing lights
         wait_template: >-
-          {{ expand(manual_override) | count == manual_override | unique | list | count and
+          {{ expand(manual_override) | count >= manual_override | unique | list | count and
              expand(manual_override) | rejectattr('state', 'eq', 'on') | list | count == 0 }}
         timeout: "{{ [0.001, response_timeout | float(2)] | max }}"
         continue_on_timeout: false
@@ -902,7 +902,7 @@ actions:
                   data:
                     transition: "{{ brightness_transition }}"
           - wait_template: >-
-              {{ expand(target_lights) | selectattr('state', 'eq', desired_power) | list | count == target_lights | count }}
+              {{ expand(target_lights) | rejectattr('state', 'eq', desired_power) | list | count == 0 }}
             timeout: "{{ [0.001, brightness_transition | float(0) + response_timeout | float(2)] | max }}"
             continue_on_timeout: true
 
